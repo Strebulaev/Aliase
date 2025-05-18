@@ -352,7 +352,7 @@ body {
 
 .word-display {
   background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: white;
+  color: black;
   padding: 40px;
   border-radius: var(--border-radius);
   margin: 20px 0;
