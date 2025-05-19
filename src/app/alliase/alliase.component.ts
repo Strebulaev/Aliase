@@ -371,8 +371,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       isBetweenRounds: false
     };
 
-    this.startPlayerTurn();
-
     if (this.isMainHost) {
       this.startSyncTimer();
       this.syncGameState();
@@ -391,7 +389,7 @@ startPlayerTurn() {
 
     this.clearTimer();
     
-    // Все клиенты запускают таймер
+    // Запускаем основной таймер, который также будет заниматься синхронизацией
     this.gameTimer = setInterval(() => {
         const now = Date.now();
         const elapsed = (now - this.lastUpdateTime) / 1000;
@@ -401,14 +399,14 @@ startPlayerTurn() {
             // Только хост вычисляет реальное оставшееся время
             this.timeLeft = Math.max(0, this.timeLeft - elapsed);
             
-            // Синхронизируем каждую секунду
+            // Синхронизируем состояние каждую секунду
             if (now - this.lastSyncTime > 1000) {
                 this.lastSyncTime = now;
                 this.serverTimeLeft = this.timeLeft;
                 this.syncGameState();
             }
         } else {
-            // Остальные игроки используют серверное время с коррекцией
+            // Для других игроков вычисляем время на основе последней синхронизации
             this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTime) / 1000);
         }
 
@@ -420,7 +418,6 @@ startPlayerTurn() {
         }
     }, 100);
 }
-
   endPlayerTurn() {
     this.clearTimer();
     this.gameState.isBetweenRounds = true;
