@@ -373,41 +373,47 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
   }
 
-  startPlayerTurn() {
+  
+startPlayerTurn() {
     this.currentPlayer = this.players[this.gameState.currentPlayerIndex];
     this.nextPlayer = this.players[(this.gameState.currentPlayerIndex + 1) % this.players.length];
     this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
     this.timeLeft = this.gameSettings.roundTime;
+    this.lastUpdateTime = Date.now();
+    this.lastSyncTimeLeft = this.timeLeft;
     this.gameState.currentWord = this.getNextWord();
 
     this.clearTimer();
-    this.timerStartTime = Date.now();
-
-    if (this.isCurrentTurnHost) {
-      this.gameTimer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - this.timerStartTime) / 1000);
-        this.timeLeft = Math.max(0, this.gameSettings.roundTime - elapsed);
+    
+    // Все клиенты запускают таймер, но только хост вычисляет "официальное" время
+    this.gameTimer = setInterval(() => {
+        const now = Date.now();
+        const elapsed = (now - this.lastUpdateTime) / 1000;
+        this.lastUpdateTime = now;
+        
+        if (this.isCurrentTurnHost) {
+            // Только хост вычисляет реальное оставшееся время
+            this.timeLeft = Math.max(0, this.lastSyncTimeLeft - elapsed);
+            this.lastSyncTimeLeft = this.timeLeft;
+            
+            // Синхронизируем каждую секунду
+            if (now - this.lastSyncTime > 1000) {
+                this.lastSyncTime = now;
+                this.syncGameState();
+            }
+        } else {
+            // Остальные игроки делают приблизительный подсчет
+            this.timeLeft = Math.max(0, this.timeLeft - elapsed);
+        }
 
         if (this.timeLeft <= 0) {
-          this.endPlayerTurn();
+            this.clearTimer();
+            if (this.isCurrentTurnHost) {
+                this.endPlayerTurn();
+            }
         }
-
-        // Синхронизируем время каждую секунду
-        if (Date.now() - this.lastSyncTime > 1000) {
-          this.lastSyncTime = Date.now();
-          this.syncGameState();
-        }
-      }, 200); // Проверяем чаще для точности
-    }
-
-    this.syncGameState();
-  }
-  startSyncTimer() {
-    this.clearSyncTimer();
-    this.syncTimer = setInterval(() => {
-      this.syncGameState();
-    }, 1000);
-  }
+    }, 100);
+}
 
   endPlayerTurn() {
     this.clearTimer();
