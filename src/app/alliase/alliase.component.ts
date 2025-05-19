@@ -87,6 +87,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   timeLeft = 0;
   private syncTimer: any;
 
+  private allWords
   private wordBank = [
   // Еда и напитки
   'Грибной суп', 'Жареный картофель', 'Куриные крылышки', 'Шоколадный торт', 
