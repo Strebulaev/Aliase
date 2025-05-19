@@ -464,7 +464,35 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       this.syncGameState();
     }
   }
+  async copyToClipboard(text: string) {
+    if (!text) {
+      alert('Нет данных для копирования');
+      return;
+    }
 
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Скопировано в буфер обмена!');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      try {
+        const success = document.execCommand('copy');
+        if (!success) throw new Error('Copy command failed');
+        alert('Скопировано (использован старый метод)');
+      } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('Не удалось скопировать текст');
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
+  }
   canContinueGame(): boolean {
     if (!this.nextPlayer) return false;
     return this.nextPlayer.peerId === this.peerId || this.isMainHost;
