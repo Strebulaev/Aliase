@@ -455,8 +455,7 @@ startPlayerTurn() {
   endGame() {
     this.gameState.isGameFinished = true;
     this.gameState.isGameStarted = false;
-    this.clearSyncTimer();
-
+   
     if (this.isMainHost) {
       this.syncGameState();
     }
