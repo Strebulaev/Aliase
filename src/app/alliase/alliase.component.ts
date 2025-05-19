@@ -372,7 +372,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     };
 
     if (this.isMainHost) {
-      this.startSyncTimer();
       this.syncGameState();
     }
   }
