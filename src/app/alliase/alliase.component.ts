@@ -38,6 +38,8 @@ interface GameState {
   styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
+  private lastUpdateTime = 0;
+  private lastSyncTimeLeft = 0;
   gameSettings: GameSettings = {
     roundTime: 60,
     totalRounds: 3,
