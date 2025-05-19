@@ -332,14 +332,13 @@ body {
   position: relative;
   font-size: 4rem;
   font-weight: 700;
-  color: var(--primary);
+  color: black;
   margin: 20px 0;
   font-family: 'Courier New', monospace;
   padding: 10px;
   border: 3px solid var(--primary);
   border-radius: var(--border-radius);
 }
-
 .timer-bar {
   position: absolute;
   bottom: 0;
