@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+какimport { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Peer, DataConnection } from 'peerjs';
@@ -614,38 +614,23 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   }
 
   generateInviteLink(): string {
-    return `${window.location.origin}${window.location.pathname}?peerId=${this.peerId}`;
+  // Получаем текущий URL без параметров
+  const baseUrl = window.location.origin + window.location.pathname;
+  
+  // Добавляем параметр с peerId хоста
+  return `${baseUrl}?join=${this.peerId}`;
+}
+
+// Обновленный метод checkUrlParams для обработки нового параметра
+checkUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const peerIdToJoin = params.get('join');
+
+  if (peerIdToJoin) {
+    this.friendPeerId = peerIdToJoin;
+    setTimeout(() => this.connectToFriend(), 1000);
   }
-
-  async copyToClipboard(text: string) {
-    if (!text) {
-      alert('Нет данных для копирования');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(text);
-      alert('Скопировано в буфер обмена!');
-    } catch (err) {
-      console.error('Copy failed:', err);
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      document.body.appendChild(textarea);
-      textarea.select();
-
-      try {
-        const success = document.execCommand('copy');
-        if (!success) throw new Error('Copy command failed');
-        alert('Скопировано (использован старый метод)');
-      } catch (err) {
-        console.error('Fallback copy failed:', err);
-        alert('Не удалось скопировать текст');
-      } finally {
-        document.body.removeChild(textarea);
-      }
-    }
-  }
+}
 
   checkUrlParams() {
     const params = new URLSearchParams(window.location.search);
