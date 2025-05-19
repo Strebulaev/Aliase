@@ -386,12 +386,12 @@ startPlayerTurn() {
     this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
     this.timeLeft = this.gameSettings.roundTime;
     this.lastUpdateTime = Date.now();
-    this.lastSyncTimeLeft = this.timeLeft;
+    this.serverTimeLeft = this.timeLeft;
     this.gameState.currentWord = this.getNextWord();
 
     this.clearTimer();
     
-    // Все клиенты запускают таймер, но только хост вычисляет "официальное" время
+    // Все клиенты запускают таймер
     this.gameTimer = setInterval(() => {
         const now = Date.now();
         const elapsed = (now - this.lastUpdateTime) / 1000;
@@ -399,17 +399,17 @@ startPlayerTurn() {
         
         if (this.isCurrentTurnHost) {
             // Только хост вычисляет реальное оставшееся время
-            this.timeLeft = Math.max(0, this.lastSyncTimeLeft - elapsed);
-            this.lastSyncTimeLeft = this.timeLeft;
+            this.timeLeft = Math.max(0, this.timeLeft - elapsed);
             
             // Синхронизируем каждую секунду
             if (now - this.lastSyncTime > 1000) {
                 this.lastSyncTime = now;
+                this.serverTimeLeft = this.timeLeft;
                 this.syncGameState();
             }
         } else {
-            // Остальные игроки делают приблизительный подсчет
-            this.timeLeft = Math.max(0, this.timeLeft - elapsed);
+            // Остальные игроки используют серверное время с коррекцией
+            this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTime) / 1000);
         }
 
         if (this.timeLeft <= 0) {
@@ -535,13 +535,11 @@ handleIncomingData(data: any) {
                 this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
             }
 
-            // Важная часть - синхронизация времени
+            // Синхронизация времени
             if (data.data.gameState.isGameStarted && !data.data.gameState.isBetweenRounds) {
-                this.timeLeft = data.data.timeLeft;
-                this.lastSyncTimeLeft = data.data.timeLeft;
-                this.lastUpdateTime = Date.now();
+                this.serverTimeLeft = data.data.timeLeft;
+                this.lastSyncTime = Date.now();
                 
-                // Перезапускаем таймер, если он не работает
                 if (!this.gameTimer) {
                     this.startPlayerTurn();
                 }
@@ -549,7 +547,6 @@ handleIncomingData(data: any) {
             break;
     }
 }
-
   handlePlayerUpdate(data: any) {
     if (!this.isMainHost) return;
 
