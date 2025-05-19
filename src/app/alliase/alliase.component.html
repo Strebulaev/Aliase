@@ -130,7 +130,8 @@
       <div class="team-turn"><i class="fas fa-user"></i> Ходит: {{currentPlayer?.name}} (Команда {{(currentPlayer?.team ?? 0) + 1}})</div>
     </div>
 
-  <div class="player-turn">
+ <div class="player-turn">
+  <!-- Таймер теперь всегда виден -->
   <div class="timer" [class.pulse]="timeLeft <= 10">
     {{ timeLeft | number:'1.0-0' }} сек
     <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
