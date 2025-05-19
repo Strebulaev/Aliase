@@ -38,7 +38,7 @@ interface GameState {
   styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
- 
+
   private lastUpdateTime = 0;
   private serverTimeLeft = 0;
   private lastSyncTimeLeft = 0;
@@ -89,12 +89,77 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
   private allWords: string[] = [];
   private wordBank = [
-    'Яблоко', 'Космонавт', 'Библиотека', 'Фейерверк',
-    'Скакалка', 'Водопад', 'Карамель', 'Телескоп',
-    'Футбол', 'Зонтик', 'Дракон', 'Океан',
-    'Гитара', 'Шоколад', 'Снеговик', 'Радуга',
-    'Космический корабль', 'Футбольный мяч', 'Шоколадный торт',
-    'Домашнее животное', 'Музыкальный инструмент'
+    'Яблоко', 'Космонавт', 'Библиотека', 'Фейерверк', 'Скакалка', 'Водопад', 
+    'Карамель', 'Телескоп', 'Футбол', 'Зонтик', 'Дракон', 'Океан', 'Гитара', 
+    'Шоколад', 'Снеговик', 'Радуга', 'Космический корабль', 'Футбольный мяч', 
+    'Шоколадный торт', 'Домашнее животное', 'Музыкальный инструмент',
+    // Добавленные слова
+    'Велосипед', 'Карандаш', 'Солнце', 'Компьютер', 'Телефон', 'Книга',
+    'Стул', 'Стол', 'Окно', 'Дверь', 'Часы', 'Ручка', 'Бумага', 'Лампа',
+    'Кошка', 'Собака', 'Птица', 'Рыба', 'Цветок', 'Дерево', 'Гора', 'Река',
+    'Море', 'Остров', 'Пляж', 'Песок', 'Камень', 'Воздух', 'Огонь', 'Земля',
+    'Вода', 'Лед', 'Снег', 'Дождь', 'Ветер', 'Туча', 'Молния', 'Гром',
+    'Растение', 'Животное', 'Человек', 'Город', 'Деревня', 'Улица', 'Дом',
+    'Квартира', 'Комната', 'Кухня', 'Ванная', 'Спальня', 'Гостиная', 'Балкон',
+    'Лифт', 'Лестница', 'Парк', 'Сад', 'Огород', 'Поле', 'Лес', 'Парковка',
+    'Магазин', 'Рынок', 'Кафе', 'Ресторан', 'Кинотеатр', 'Театр', 'Музей',
+    'Банк', 'Больница', 'Поликлиника', 'Аптека', 'Школа', 'Университет',
+    'Стадион', 'Бассейн', 'Спортзал', 'Отель', 'Аэропорт', 'Вокзал', 'Автобус', 
+    'Поезд', 'Самолет', 'Корабль', 'Машина', 'Мотоцикл', 'Такси', 'Метро', 
+    'Трамвай', 'Троллейбус', 'Светофор', 'Дорога', 'Тротуар', 'Мост', 'Тоннель', 
+    'Знак', 'Карта', 'Компас', 'Фонарь', 'Ключ', 'Замок', 'Сумка', 'Кошелек', 
+    'Деньги', 'Чек', 'Квитанция', 'Документ', 'Паспорт', 'Водительские права', 
+    'Виза', 'Билет', 'Марка', 'Конверт', 'Письмо', 'Открытка', 'Посылка', 
+    'Бандероль', 'Телеграмма', 'Факс', 'Электронная почта', 'СМС', 'Сообщение', 
+    'Звонок', 'Разговор', 'Встреча', 'Свидание', 'Праздник', 'День рождения', 
+    'Новый год', 'Рождество', 'Пасха', '8 марта', '23 февраля', '1 мая', '9 мая', 
+    'День победы', 'День знаний', 'День учителя', 'День матери', 'День отца', 
+    'День святого Валентина', 'Хэллоуин', 'Масленица', 'Крещение', 'Иван Купала', 
+    'День народного единства', 'День России', 'День конституции', 'День флага', 
+    'День герба', 'День гимна', 'Футболка', 'Джинсы', 'Платье', 'Пальто', 'Шапка', 
+    'Шарф', 'Перчатки', 'Носки', 'Обувь', 'Кроссовки', 'Сапоги', 'Туфли', 'Ремень', 
+    'Галстук', 'Часы', 'Очки', 'Зонт', 'Рюкзак', 'Чемодан', 'Косметичка', 'Расческа', 
+    'Зубная щетка', 'Мыло', 'Шампунь', 'Полотенце', 'Зубная паста', 'Дезодорант', 
+    'Крем', 'Помада', 'Тени', 'Тушь', 'Лак для ногтей', 'Бритва', 'Ножницы', 
+    'Зеркало', 'Фен', 'Плойка', 'Будильник', 'Телевизор', 'Радио', 'Холодильник', 
+    'Микроволновка', 'Чайник', 'Кофеварка', 'Блендер', 'Тостер', 'Пылесос', 
+    'Утюг', 'Стиральная машина', 'Посудомойка', 'Вентилятор', 'Кондиционер', 
+    'Обогреватель', 'Плед', 'Подушка', 'Одеяло', 'Простыня', 'Полотенце', 
+    'Ковер', 'Шторы', 'Картина', 'Ваза', 'Свеча', 'Часы', 'Календарь', 'Ежедневник', 
+    'Ручка', 'Карандаш', 'Ластик', 'Линейка', 'Тетрадь', 'Блокнот', 'Скотч', 
+    'Клей', 'Степлер', 'Скрепки', 'Канцелярские кнопки', 'Дырокол', 'Файлы', 
+    'Папки', 'Конверты', 'Бумага', 'Картон', 'Ножницы', 'Корректор', 'Маркеры', 
+    'Фломастеры', 'Краски', 'Кисти', 'Пластилин', 'Цветная бумага', 'Нитки', 
+    'Иголки', 'Пуговицы', 'Молния', 'Ткань', 'Швейная машинка', 'Вязальные спицы', 
+    'Крючок', 'Пряжа', 'Вышивка', 'Аппликация', 'Оригами', 'Пазлы', 'Конструктор', 
+    'Кубики', 'Мяч', 'Скакалка', 'Обруч', 'Ракетка', 'Воланы', 'Шахматы', 'Шашки', 
+    'Домино', 'Карты', 'Лото', 'Монополия', 'Кроссворды', 'Судоку', 'Головоломки', 
+    'Книжки-раскраски', 'Настольные игры', 'Видеоигры', 'Приставка', 'Джойстик', 
+    'Компьютерные игры', 'Мобильные игры', 'Кино', 'Мультфильмы', 'Сериалы', 
+    'Телешоу', 'Ютуб', 'Подкасты', 'Аудиокниги', 'Музыка', 'Песни', 'Альбомы', 
+    'Исполнители', 'Группы', 'Концерты', 'Фестивали', 'Танцы', 'Балет', 'Опера', 
+    'Театр', 'Цирк', 'Выставки', 'Музеи', 'Галереи', 'Парки аттракционов', 
+    'Зоопарки', 'Океанариумы', 'Дельфинарии', 'Ботанические сады', 'Заповедники', 
+    'Национальные парки', 'Горы', 'Пещеры', 'Водопады', 'Озера', 'Реки', 'Моря', 
+    'Океаны', 'Острова', 'Пляжи', 'Леса', 'Пустыни', 'Степи', 'Тундра', 'Тайга', 
+    'Джунгли', 'Саванны', 'Вулканы', 'Гейзеры', 'Ледники', 'Каньоны', 'Плато', 
+    'Оазисы', 'Архипелаги', 'Проливы', 'Заливы', 'Бухты', 'Мысы', 'Полуострова', 
+    'Материки', 'Страны', 'Города', 'Столицы', 'Деревни', 'Поселки', 'Мегаполисы', 
+    'Кварталы', 'Улицы', 'Площади', 'Проспекты', 'Бульвары', 'Переулки', 
+    'Тупики', 'Мосты', 'Тоннели', 'Эстакады', 'Развязки', 'Шоссе', 'Трассы', 
+    'Автобаны', 'Магистрали', 'Железные дороги', 'Вокзалы', 'Аэропорты', 
+    'Порты', 'Станции', 'Остановки', 'Платформы', 'Перроны', 'Терминалы', 
+    'Аэровокзалы', 'Речные вокзалы', 'Морские порты', 'Автовокзалы', 'Такси', 
+    'Автобусы', 'Трамваи', 'Троллейбусы', 'Метро', 'Маршрутки', 'Электрички', 
+    'Поезда', 'Самолеты', 'Вертолеты', 'Корабли', 'Лодки', 'Катера', 'Яхты', 
+    'Паромы', 'Танкеры', 'Лайнеры', 'Дирижабли', 'Воздушные шары', 'Дельтапланы', 
+    'Парапланы', 'Парашюты', 'Самокаты', 'Скейтборды', 'Ролики', 'Лыжи', 
+    'Сноуборды', 'Коньки', 'Санки', 'Ледянки', 'Бобслей', 'Скелетон', 'Керлинг', 
+    'Хоккей', 'Фигурное катание', 'Биатлон', 'Лыжные гонки', 'Прыжки с трамплина', 
+    'Горные лыжи', 'Фристайл', 'Сноубординг', 'Бобслей', 'Санный спорт', 'Керлинг', 
+    'Хоккей с шайбой', 'Хоккей с мячом', 'Фигурное катание', 'Конькобежный спорт', 
+    'Шорт-трек', 'Биатлон', 'Лыжное двоеборье', 'Прыжки на лыжах с трамплина', 
+    'Горнолыжный спорт', 'Фристайл', 'Сноуборд', 'Бобслей', 'Скелетон', 'Керлинг'
   ];
 
   async ngOnInit() {
@@ -375,8 +440,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
   }
 
-  
-startPlayerTurn() {
+  startPlayerTurn() {
     this.currentPlayer = this.players[this.gameState.currentPlayerIndex];
     this.nextPlayer = this.players[(this.gameState.currentPlayerIndex + 1) % this.players.length];
     this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
@@ -386,25 +450,21 @@ startPlayerTurn() {
     this.gameState.currentWord = this.getNextWord();
 
     this.clearTimer();
-    
-    // Запускаем основной таймер, который также будет заниматься синхронизацией
+
     this.gameTimer = setInterval(() => {
         const now = Date.now();
         const elapsed = (now - this.lastUpdateTime) / 1000;
         this.lastUpdateTime = now;
-        
+
         if (this.isCurrentTurnHost) {
-            // Только хост вычисляет реальное оставшееся время
             this.timeLeft = Math.max(0, this.timeLeft - elapsed);
-            
-            // Синхронизируем состояние каждую секунду
+
             if (now - this.lastSyncTime > 1000) {
                 this.lastSyncTime = now;
                 this.serverTimeLeft = this.timeLeft;
                 this.syncGameState();
             }
         } else {
-            // Для других игроков вычисляем время на основе последней синхронизации
             this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTime) / 1000);
         }
 
@@ -415,7 +475,8 @@ startPlayerTurn() {
             }
         }
     }, 100);
-}
+  }
+
   endPlayerTurn() {
     this.clearTimer();
     this.gameState.isBetweenRounds = true;
@@ -453,14 +514,19 @@ startPlayerTurn() {
   endGame() {
     this.gameState.isGameFinished = true;
     this.gameState.isGameStarted = false;
-   
+
     if (this.isMainHost) {
       this.syncGameState();
     }
   }
 
   prepareWords() {
-    this.allWords = [...this.wordBank]
+    // Фильтруем слова, которые еще не были использованы
+    const unusedWords = this.wordBank.filter(word => 
+      !this.gameState.usedWords.some(used => used.word === word)
+    );
+
+    this.allWords = [...unusedWords]
       .filter(word => word.split(' ').length <= this.gameSettings.maxWordLength)
       .sort(() => Math.random() - 0.5)
       .slice(0, this.players.length * this.gameSettings.totalRounds * 10);
@@ -470,6 +536,14 @@ startPlayerTurn() {
     if (this.allWords.length === 0) {
       this.prepareWords();
     }
+    
+    if (this.allWords.length === 0) {
+      // Если слова закончились, перемешиваем использованные слова
+      this.wordBank = [...this.wordBank];
+      this.gameState.usedWords = [];
+      this.prepareWords();
+    }
+    
     return this.allWords.pop() || 'Слово не найдено';
   }
 
@@ -513,34 +587,34 @@ startPlayerTurn() {
     }
   }
 
-handleIncomingData(data: any) {
+  handleIncomingData(data: any) {
     if (!data) return;
 
     switch (data.type) {
-        case 'gameState':
-            this.gameSettings = data.data.settings;
-            this.players = data.data.players;
-            this.gameState = data.data.gameState;
-            this.currentPlayer = data.data.currentPlayer;
-            this.nextPlayer = data.data.nextPlayer;
-            this.isMainHost = data.data.isMainHost;
+      case 'gameState':
+        this.gameSettings = data.data.settings;
+        this.players = data.data.players;
+        this.gameState = data.data.gameState;
+        this.currentPlayer = data.data.currentPlayer;
+        this.nextPlayer = data.data.nextPlayer;
+        this.isMainHost = data.data.isMainHost;
 
-            if (this.currentPlayer) {
-                this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
-            }
+        if (this.currentPlayer) {
+          this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
+        }
 
-            // Синхронизация времени
-            if (data.data.gameState.isGameStarted && !data.data.gameState.isBetweenRounds) {
-                this.serverTimeLeft = data.data.timeLeft;
-                this.lastSyncTime = Date.now();
-                
-                if (!this.gameTimer) {
-                    this.startPlayerTurn();
-                }
-            }
-            break;
+        if (data.data.gameState.isGameStarted && !data.data.gameState.isBetweenRounds) {
+          this.serverTimeLeft = data.data.timeLeft;
+          this.lastSyncTime = Date.now();
+
+          if (!this.gameTimer) {
+            this.startPlayerTurn();
+          }
+        }
+        break;
     }
-}
+  }
+
   handlePlayerUpdate(data: any) {
     if (!this.isMainHost) return;
 
@@ -559,84 +633,3 @@ handleIncomingData(data: any) {
     return `${window.location.origin}${window.location.pathname}?peerId=${this.peerId}`;
   }
 
-  async copyToClipboard(text: string) {
-    if (!text) {
-      alert('Нет данных для копирования');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(text);
-      alert('Скопировано в буфер обмена!');
-    } catch (err) {
-      console.error('Copy failed:', err);
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      document.body.appendChild(textarea);
-      textarea.select();
-
-      try {
-        const success = document.execCommand('copy');
-        if (!success) throw new Error('Copy command failed');
-        alert('Скопировано (использован старый метод)');
-      } catch (err) {
-        console.error('Fallback copy failed:', err);
-        alert('Не удалось скопировать текст');
-      } finally {
-        document.body.removeChild(textarea);
-      }
-    }
-  }
-
-  checkUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    const peerId = params.get('peerId');
-
-    if (peerId) {
-      this.friendPeerId = peerId;
-      setTimeout(() => this.connectToFriend(), 1000);
-    }
-  }
-
-  getCurrentTeamPlayers(teamIndex: number): Player[] {
-    return this.players.filter(player => player.team === teamIndex);
-  }
-
-  getWinnerTeam(): number | null {
-    if (!this.gameState.isGameFinished) return null;
-
-    const maxScore = Math.max(...this.gameState.scores);
-    const winningTeams = this.gameState.scores.reduce((acc, score, index) => {
-      if (score === maxScore) acc.push(index);
-      return acc;
-    }, [] as number[]);
-
-    return winningTeams.length === 1 ? winningTeams[0] : null;
-  }
-
-  private clearTimer() {
-    if (this.gameTimer) {
-      clearInterval(this.gameTimer);
-      this.gameTimer = null;
-    }
-  }
-
-  private clearSyncTimer() {
-    if (this.syncTimer) {
-      clearInterval(this.syncTimer);
-      this.syncTimer = null;
-    }
-  }
-
-  private clearTimers() {
-    if (this.gameTimer) {
-        clearInterval(this.gameTimer);
-        this.gameTimer = null;
-    }
-}
-  restartGame() {
-    this.gameState.isGameFinished = false;
-    this.startGame();
-  }
-}
