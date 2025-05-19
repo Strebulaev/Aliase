@@ -38,7 +38,7 @@ interface GameState {
   styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
-  private gameTimer: any = null;
+ 
   private lastUpdateTime = 0;
   private serverTimeLeft = 0;
   private lastSyncTime = 0;
