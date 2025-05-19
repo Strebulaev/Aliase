@@ -40,6 +40,10 @@ interface GameState {
 export class AlliaseComponent implements OnInit, OnDestroy {
   private lastUpdateTime = 0;
   private lastSyncTimeLeft = 0;
+// Добавьте в начало класса с другими свойствами
+  private lastUpdateTime = 0;
+  private serverTimeLeft = 0;
+  private localTimeOffset = 0;
   gameSettings: GameSettings = {
     roundTime: 60,
     totalRounds: 3,
