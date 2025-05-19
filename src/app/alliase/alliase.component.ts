@@ -507,37 +507,43 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
   }
 
-  handleIncomingData(data: any) {
-    if (!data) return;
+handleIncomingData(data: any) {
+  if (!data) return;
 
-    switch (data.type) {
-      case 'gameState':
-        // Обновляем время с учетом задержки сети
-        if (data.data.gameState.isGameStarted && !data.data.gameState.isBetweenRounds) {
-          const now = Date.now();
-          const serverTime = data.data.timeLeft;
-          const timeSinceUpdate = (now - data.timestamp) / 1000;
-          this.timeLeft = Math.max(0, serverTime - timeSinceUpdate);
+  switch (data.type) {
+    case 'gameState':
+      this.gameSettings = data.data.settings;
+      this.players = data.data.players;
+      this.gameState = data.data.gameState;
+      this.currentPlayer = data.data.currentPlayer;
+      this.nextPlayer = data.data.nextPlayer;
+      this.isMainHost = data.data.isMainHost;
 
-          // Если это обновление таймера, корректируем локальный таймер
-          if (this.isCurrentTurnHost && this.gameTimer) {
-            this.timerStartTime = now - (this.gameSettings.roundTime - serverTime) * 1000;
-          }
+      if (this.currentPlayer) {
+        this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
+      }
+
+      // Обновляем время для всех игроков
+      if (data.data.gameState.isGameStarted && !data.data.gameState.isBetweenRounds) {
+        // Используем серверное время с учетом задержки сети
+        const now = Date.now();
+        const networkDelay = (now - data.timestamp) / 1000;
+        this.timeLeft = Math.max(0, data.data.timeLeft - networkDelay);
+        
+        // Если это не хост текущего хода, запускаем локальный таймер
+        if (!this.isCurrentTurnHost) {
+          this.clearTimer();
+          this.gameTimer = setInterval(() => {
+            this.timeLeft = Math.max(0, this.timeLeft - 0.1);
+            if (this.timeLeft <= 0) {
+              this.clearTimer();
+            }
+          }, 100);
         }
-
-        this.gameSettings = data.data.settings;
-        this.players = data.data.players;
-        this.gameState = data.data.gameState;
-        this.currentPlayer = data.data.currentPlayer;
-        this.nextPlayer = data.data.nextPlayer;
-        this.isMainHost = data.data.isMainHost;
-
-        if (this.currentPlayer) {
-          this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
-        }
-        break;
-    }
+      }
+      break;
   }
+}
 
   handlePlayerUpdate(data: any) {
     if (!this.isMainHost) return;
