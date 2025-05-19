@@ -123,6 +123,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
       this.peer = new Peer({
         debug: 3,
+        secure: false,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
