@@ -133,8 +133,8 @@
  <div class="player-turn">
   <!-- Таймер теперь всегда виден -->
   <div class="timer" [class.pulse]="timeLeft <= 10">
-    {{ timeLeft | number:'1.0-0' }} сек
-    <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
+  {{ timeLeft | number:'1.0-0' }} сек
+  <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
   </div>
   
   <div *ngIf="isCurrentTurnHost" class="word-display">
