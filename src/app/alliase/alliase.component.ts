@@ -41,7 +41,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
  
   private lastUpdateTime = 0;
   private serverTimeLeft = 0;
-  private lastSyncTime = 0;
   private lastSyncTimeLeft = 0;
   private localTimeOffset = 0;
   gameSettings: GameSettings = {
