@@ -38,11 +38,11 @@ interface GameState {
   styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
-  // private startSyncTimer = 0
-  private lastSyncTimeLeft = 0;
-// Добавьте в начало класса с другими свойствами
+  private gameTimer: any = null;
   private lastUpdateTime = 0;
   private serverTimeLeft = 0;
+  private lastSyncTime = 0;
+  private lastSyncTimeLeft = 0;
   private localTimeOffset = 0;
   gameSettings: GameSettings = {
     roundTime: 60,
