@@ -558,7 +558,30 @@ body {
 .fade-in {
   animation: fadeIn 0.5s ease-out;
 }
+.timer {
+  position: relative;
+  font-size: 4rem;
+  font-weight: 700;
+  color: black;
+  margin: 20px 0;
+  font-family: 'Courier New', monospace;
+  padding: 10px;
+  border: 3px solid var(--primary);
+  border-radius: var(--border-radius);
+  transition: all 0.3s ease;
+}
 
+.timer.pulse {
+  animation: pulse 1s infinite;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
 @media (max-width: 992px) {
   .setup-panel {
     grid-template-columns: 1fr;
