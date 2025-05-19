@@ -632,16 +632,6 @@ checkUrlParams() {
   }
 }
 
-  checkUrlParams() {
-    const params = new URLSearchParams(window.location.search);
-    const peerId = params.get('peerId');
-
-    if (peerId) {
-      this.friendPeerId = peerId;
-      setTimeout(() => this.connectToFriend(), 1000);
-    }
-  }
-
   getCurrentTeamPlayers(teamIndex: number): Player[] {
     return this.players.filter(player => player.team === teamIndex);
   }
