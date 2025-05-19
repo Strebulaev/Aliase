@@ -633,10 +633,11 @@ handleIncomingData(data: any) {
   }
 
   private clearTimers() {
-    this.clearTimer();
-    this.clearSyncTimer();
-  }
-
+    if (this.gameTimer) {
+        clearInterval(this.gameTimer);
+        this.gameTimer = null;
+    }
+}
   restartGame() {
     this.gameState.isGameFinished = false;
     this.startGame();
