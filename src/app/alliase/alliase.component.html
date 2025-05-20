@@ -59,12 +59,6 @@
       </button>
     </div>
 
-    <div class="invite-section">
-      <button (click)="copyToClipboard(generateInviteLink())" [disabled]="!peerId" class="button button-primary">
-        <i class="fas fa-share-alt"></i> Создать ссылку-приглашение
-      </button>
-    </div>
-  </div>
 
   <!-- Настройки игры и игроки -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && !showConnectionPanel"
