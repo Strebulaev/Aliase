@@ -21,12 +21,14 @@
     "@angular/platform-browser-dynamic": "^19.2.0",
     "@angular/router": "^19.2.0",
     "@types/peerjs": "^0.0.30",
+    "@types/webtorrent": "^0.110.0",
     "jest-editor-support": "*",
     "peer": "^1.0.2",
     "peerjs": "^1.5.4",
     "run-script-os": "*",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
+    "webtorrent": "^2.6.7",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
@@ -41,5 +43,19 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
     "typescript": "~5.7.2"
-  }
+  },
+  "description": "This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.12.",
+  "main": "aspnetcore-https.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Strebulaev/Aliase.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Strebulaev/Aliase/issues"
+  },
+  "homepage": "https://github.com/Strebulaev/Aliase#readme"
 }

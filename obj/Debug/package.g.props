@@ -20,12 +20,14 @@
     <PackageJsonDependenciesAngularPlatformBrowserDynamic Condition="$(PackageJsonDependenciesAngularPlatformBrowserDynamic) == ''">^19.2.0</PackageJsonDependenciesAngularPlatformBrowserDynamic>
     <PackageJsonDependenciesAngularRouter Condition="$(PackageJsonDependenciesAngularRouter) == ''">^19.2.0</PackageJsonDependenciesAngularRouter>
     <PackageJsonDependenciesTypesPeerjs Condition="$(PackageJsonDependenciesTypesPeerjs) == ''">^0.0.30</PackageJsonDependenciesTypesPeerjs>
+    <PackageJsonDependenciesTypesWebtorrent Condition="$(PackageJsonDependenciesTypesWebtorrent) == ''">^0.110.0</PackageJsonDependenciesTypesWebtorrent>
     <PackageJsonDependenciesJestEditorSupport Condition="$(PackageJsonDependenciesJestEditorSupport) == ''">*</PackageJsonDependenciesJestEditorSupport>
     <PackageJsonDependenciesPeer Condition="$(PackageJsonDependenciesPeer) == ''">^1.0.2</PackageJsonDependenciesPeer>
     <PackageJsonDependenciesPeerjs Condition="$(PackageJsonDependenciesPeerjs) == ''">^1.5.4</PackageJsonDependenciesPeerjs>
     <PackageJsonDependenciesRunScriptOs Condition="$(PackageJsonDependenciesRunScriptOs) == ''">*</PackageJsonDependenciesRunScriptOs>
     <PackageJsonDependenciesRxjs Condition="$(PackageJsonDependenciesRxjs) == ''">~7.8.0</PackageJsonDependenciesRxjs>
     <PackageJsonDependenciesTslib Condition="$(PackageJsonDependenciesTslib) == ''">^2.3.0</PackageJsonDependenciesTslib>
+    <PackageJsonDependenciesWebtorrent Condition="$(PackageJsonDependenciesWebtorrent) == ''">^2.6.7</PackageJsonDependenciesWebtorrent>
     <PackageJsonDependenciesZoneJs Condition="$(PackageJsonDependenciesZoneJs) == ''">~0.15.0</PackageJsonDependenciesZoneJs>
     <PackageJsonDevdependenciesAngularDevkitBuildAngular Condition="$(PackageJsonDevdependenciesAngularDevkitBuildAngular) == ''">^19.2.12</PackageJsonDevdependenciesAngularDevkitBuildAngular>
     <PackageJsonDevdependenciesAngularCli Condition="$(PackageJsonDevdependenciesAngularCli) == ''">^19.2.12</PackageJsonDevdependenciesAngularCli>
@@ -38,5 +40,15 @@
     <PackageJsonDevdependenciesKarmaJasmine Condition="$(PackageJsonDevdependenciesKarmaJasmine) == ''">~5.1.0</PackageJsonDevdependenciesKarmaJasmine>
     <PackageJsonDevdependenciesKarmaJasmineHtmlReporter Condition="$(PackageJsonDevdependenciesKarmaJasmineHtmlReporter) == ''">~2.1.0</PackageJsonDevdependenciesKarmaJasmineHtmlReporter>
     <PackageJsonDevdependenciesTypescript Condition="$(PackageJsonDevdependenciesTypescript) == ''">~5.7.2</PackageJsonDevdependenciesTypescript>
+    <PackageJsonDescription Condition="$(PackageJsonDescription) == ''">This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.12.</PackageJsonDescription>
+    <PackageJsonMain Condition="$(PackageJsonMain) == ''">aspnetcore-https.js</PackageJsonMain>
+    <PackageJsonRepositoryType Condition="$(PackageJsonRepositoryType) == ''">git</PackageJsonRepositoryType>
+    <PackageJsonRepositoryUrl Condition="$(PackageJsonRepositoryUrl) == ''">git+https://github.com/Strebulaev/Aliase.git</PackageJsonRepositoryUrl>
+    <PackageJsonKeywords Condition="$(PackageJsonKeywords) == ''">[]</PackageJsonKeywords>
+    <PackageJsonAuthor Condition="$(PackageJsonAuthor) == ''"></PackageJsonAuthor>
+    <PackageJsonLicense Condition="$(PackageJsonLicense) == ''">ISC</PackageJsonLicense>
+    <PackageJsonType Condition="$(PackageJsonType) == ''">commonjs</PackageJsonType>
+    <PackageJsonBugsUrl Condition="$(PackageJsonBugsUrl) == ''">https://github.com/Strebulaev/Aliase/issues</PackageJsonBugsUrl>
+    <PackageJsonHomepage Condition="$(PackageJsonHomepage) == ''">https://github.com/Strebulaev/Aliase#readme</PackageJsonHomepage>
   </PropertyGroup>
 </Project>

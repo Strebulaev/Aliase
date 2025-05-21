@@ -150,25 +150,31 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.peer.destroy();
       }
 
+      // Используем наш собственный PeerServer
       this.peer = new Peer({
         debug: 3,
+        host: 'aliase-peerjs.herokuapp.com',
+        port: 443,
         secure: true,
+        path: '/',
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
           ]
         }
       });
 
       this.peer.on('open', (id) => {
+        console.log('Peer ID:', id);
         this.peerId = id;
-        this.connectionStatus = `Готов к подключению.`;
+        this.connectionStatus = 'Готов к подключению';
         localStorage.setItem('aliasPeerId', id);
-        this.connectionRetries = 0;
       });
 
       this.peer.on('connection', (conn) => {
+        console.log('Входящее соединение от:', conn.peer);
         this.handleIncomingConnection(conn);
       });
 
@@ -177,15 +183,17 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.handlePeerError(err);
       });
 
-      const savedId = localStorage.getItem('aliasPeerId');
-      if (savedId) {
-        this.peerId = savedId;
-        this.connectionStatus = `Используем сохраненный ID...`;
-      }
+      // Таймаут для инициализации
+      setTimeout(() => {
+        if (!this.peerId) {
+          this.connectionStatus = 'Ошибка: Не удалось получить PeerID';
+          this.retryPeerConnection();
+        }
+      }, 10000);
 
     } catch (err) {
       console.error('Ошибка инициализации Peer:', err);
-      this.connectionStatus = 'Ошибка инициализации соединения';
+      this.connectionStatus = 'Ошибка соединения';
       this.retryPeerConnection();
     }
   }
@@ -274,23 +282,21 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
     switch (err.type) {
       case 'peer-unavailable':
-        this.connectionStatus = 'Ошибка: Соединение недоступно. Проверьте ID друга';
+        this.connectionStatus = 'Друг недоступен. Проверьте ID';
         break;
       case 'network':
-        this.connectionStatus = 'Ошибка сети. Проверьте подключение к интернету';
+        this.connectionStatus = 'Проблемы с сетью';
         this.retryPeerConnection();
         break;
-      case 'peer-disconnected':
-        this.connectionStatus = 'Соединение разорвано. Переподключаемся...';
-        this.retryPeerConnection();
-        break;
-      case 'browser-incompatible':
-        this.connectionStatus = 'Ошибка: Ваш браузер не поддерживает WebRTC';
+      case 'disconnected':
+        this.connectionStatus = 'Соединение потеряно. Переподключаемся...';
+        this.initPeerConnection();
         break;
       default:
-        this.connectionStatus = `Ошибка: ${err.message || 'Неизвестная ошибка соединения'}`;
-        this.retryPeerConnection();
+        this.connectionStatus = `Ошибка: ${err.message || 'Неизвестная ошибка'}`;
     }
+
+    this.showManualConnect = true;
   }
 
   retryPeerConnection() {
@@ -358,17 +364,47 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
 
     this.connectionStatus = 'Подключаемся...';
+    console.log('Попытка подключения к:', this.friendPeerId);
+
     try {
-      this.conn = this.peer.connect(this.friendPeerId);
-      if (this.conn) {
-        this.isMainHost = false; // Клиент не является ведущим
-        this.setupConnection();
-      } else {
-        this.connectionStatus = 'Ошибка при создании соединения';
+      this.conn = this.peer.connect(this.friendPeerId, {
+        reliable: true,
+        serialization: 'json'
+      });
+
+      if (!this.conn) {
+        throw new Error('Не удалось создать соединение');
       }
+
+      // Таймаут подключения
+      const connectionTimeout = setTimeout(() => {
+        if (!this.isConnected) {
+          this.connectionStatus = 'Таймаут подключения';
+          this.conn?.close();
+        }
+      }, 15000);
+
+      this.conn.on('open', () => {
+        clearTimeout(connectionTimeout);
+        console.log('Соединение установлено!');
+        this.connectionStatus = 'Подключено!';
+        this.isConnected = true;
+        this.showConnectionPanel = false;
+        this.syncGameState();
+      });
+
+      this.conn.on('error', (err) => {
+        console.error('Ошибка соединения:', err);
+        this.connectionStatus = 'Ошибка подключения';
+        this.isConnected = false;
+      });
+
+      this.setupConnection();
+
     } catch (err) {
       console.error('Ошибка подключения:', err);
-      this.connectionStatus = 'Ошибка при подключении';
+      this.connectionStatus = 'Ошибка подключения';
+      this.showManualConnect = true;
     }
   }
 
