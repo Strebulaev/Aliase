@@ -1,3 +1,10 @@
+<head>
+<meta name="monetag" content="a3c80cd77bdb2d5537a79f0da4334375">
+<!-- Yandex.RTB -->
+<script>window.yaContextCb=window.yaContextCb||[]</script>
+<script src="https://yandex.ru/ads/system/context.js" async></script>
+</head>
+
 <div class="game-container">
   <!-- Модальное окно ручного подключения -->
   <div class="modal-backup" *ngIf="showManualConnect">
@@ -50,12 +57,6 @@
       </button>
     </div>
 
-    <div class="invite-section">
-      <!--<button (click)="copyToClipboard(generateInviteLink())" [disabled]="!peerId" class="button button-primary">
-        <i class="fas fa-share-alt"></i> Создать ссылку-приглашение
-      </button>-->
-    </div>
-  </div>
 
   <!-- Настройки игры и игроки -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && !showConnectionPanel"
@@ -224,3 +225,15 @@
     </button>
   </div>
 </div>
+<body>
+<!-- Yandex.RTB R-A-15561004-1 -->
+<script>
+window.yaContextCb.push(() => {
+    Ya.Context.AdvManager.render({
+        "blockId": "R-A-15561004-1",
+        "type": "floorAd",
+        "platform": "touch"
+    })
+})
+</script>
+</body>
