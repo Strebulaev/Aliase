@@ -2,6 +2,9 @@ import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Peer, DataConnection } from 'peerjs';
+import { usedWords } from './used-words';
+import { unusedWords } from './unused-words';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 
 interface Player {
   id: string;
@@ -30,19 +33,31 @@ interface GameState {
   isBetweenRounds: boolean;
 }
 
+interface RoomInfo {
+  roomId: string;
+  hostPeerId: string;
+  timestamp: number;
+}
+
 @Component({
   selector: 'app-alliase',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './alliase.component.html',
   styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
-
   private lastUpdateTime = 0;
   private serverTimeLeft = 0;
   private lastSyncTimeLeft = 0;
   private localTimeOffset = 0;
+  private wordHistory: string[] = [];
+  private maxWordHistory = 100;
+  private connectionRetries = 0;
+  private maxConnectionRetries = 5;
+  private timeSyncInterval = 500;
+  private lastTimeSync = 0
+
   gameSettings: GameSettings = {
     roundTime: 60,
     totalRounds: 3,
@@ -70,6 +85,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     isGameFinished: false,
     isBetweenRounds: false
   };
+
   private lastSyncTime = 0;
   private timerStartTime = 0;
 
@@ -82,235 +98,32 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   showManualConnect = false;
   manualFriendId = '';
   showPlayerForm = false;
+  roomId = '';
+  showRoomInput = false;
+  isCreatingRoom = false;
+  isJoiningRoom = false;
 
   private gameTimer: any;
   timeLeft = 0;
   private syncTimer: any;
-
   private allWords: string[] = [];
-  private wordBank = [
-  // Еда и напитки
-  'Грибной суп', 'Жареный картофель', 'Куриные крылышки', 'Шоколадный торт', 
-  'Мятный чай', 'Сливочное мороженое', 'Овощное рагу', 'Фруктовый салат',
-  'Гречневая каша', 'Кукурузные хлопья', 'Томатный сок', 'Домашняя пицца',
-  'Ванильный пудинг', 'Жареный арахис', 'Клубничное варенье', 'Копченая колбаса',
-  'Малиновый сироп', 'Свежая выпечка', 'Лимонное печенье', 'Медовый пряник',
+  private wordBank: string[] = [...unusedWords];
 
-  // Животные
-  'Полярная сова', 'Королевский пингвин', 'Речной бобр', 'Лесная куница',
-  'Домашний хомяк', 'Африканский слон', 'Пятнистый олень', 'Полосатый тигр',
-  'Морская черепаха', 'Ядовитая змея', 'Пушистый кролик', 'Серый волк',
-  'Рыжий лис', 'Дикий кабан', 'Бурый медведь', 'Черно-белый панда',
-
-  // Профессии
-  'Пожарный расчет', 'Опытный хирург', 'Школьный учитель', 'Частный детектив',
-  'Главный редактор', 'Архитектурный проект', 'Библиотечный работник', 'Спасатель МЧС',
-  'Оперный певец', 'Телевизионный ведущий', 'Строительный рабочий', 'Научный сотрудник',
-
-  // Техника
-  'Стиральная машина', 'Микроволновая печь', 'Игровая приставка', 'Мобильный телефон',
-  'Электрический чайник', 'Портативный компьютер', 'Цифровой фотоаппарат', 'Спутниковая антенна',
-  'Автоматическая дверь', 'Сенсорный экран', 'Беспроводные наушники', 'Электронная книга',
-
-  // Природа
-  'Хвойный лес', 'Горный водопад', 'Пустынный оазис', 'Тропический ливень',
-  'Северное сияние', 'Вулканический пепел', 'Песчаная буря', 'Лунное затмение',
-  'Морской бриз', 'Ледяная глыба', 'Цветущий луг', 'Грозовая туча',
-
-  // Спорт
-  'Футбольный мяч', 'Боксерская груша', 'Беговая дорожка', 'Гимнастическое бревно',
-  'Волейбольная сетка', 'Плавательные очки', 'Горные лыжи', 'Фигурное катание',
-  'Спортивный комментатор', 'Олимпийский чемпион', 'Тренировочный зал', 'Разминочный костюм',
-
-  // Музыка
-  'Рок-концерт', 'Классическая соната', 'Джазовый квартет', 'Народные инструменты',
-  'Электронный синтезатор', 'Хоровое пение', 'Оператор звука', 'Нотная тетрадь',
-  'Громкоговоритель', 'Уличный музыкант', 'Концертный зал', 'Звукозаписывающая студия',
-
-  // Город
-  'Пешеходный переход', 'Подземный переход', 'Многоэтажный дом', 'Торговый центр',
-  'Парковочное место', 'Автобусная остановка', 'Фонарный столб', 'Скейт-парк',
-  'Детская площадка', 'Фонтанный комплекс', 'Исторический памятник', 'Ночной клуб',
-
-  // Дом
-  'Кухонный гарнитур', 'Обеденный стол', 'Письменный стол', 'Книжная полка',
-  'Оконное стекло', 'Дверная ручка', 'Потолочный светильник', 'Ванная комната',
-  'Балконные перила', 'Гардеробная комната', 'Постельное белье', 'Швейная машинка',
-
-  // Одежда
-  'Кожаная куртка', 'Вязаный свитер', 'Джинсовые шорты', 'Резиновые сапоги',
-  'Шерстяные носки', 'Шелковый платок', 'Меховая шапка', 'Солнечные очки',
-  'Костюм-тройка', 'Вечернее платье', 'Спортивный костюм', 'Купальный костюм',
-
-  // Транспорт
-  'Грузовой поезд', 'Пассажирский самолет', 'Речной трамвай', 'Городской автобус',
-  'Скорая помощь', 'Пожарная машина', 'Гоночный автомобиль', 'Горный велосипед',
-  'Подводная лодка', 'Космический корабль', 'Воздушный шар', 'Конный экипаж',
-
-  // Наука
-  'Химическая реакция', 'Физический эксперимент', 'Биологический вид', 'Математическая формула',
-  'Генетический код', 'Клинические испытания', 'Научное открытие', 'Лабораторное оборудование',
-  'Теоретическая физика', 'Квантовая механика', 'Искусственный интеллект', 'Космический телескоп',
-
-  // Разное
-  'Праздничный салют', 'Воздушный змей', 'Мыльный пузырь', 'Карточный домик',
-  'Пластиковая карта', 'Золотое кольцо', 'Стеклянная ваза', 'Деревянная ложка',
-  'Резиновый мяч', 'Бумажный самолетик', 'Металлический замок', 'Шерстяной ковер',
-
-  // Глаголы и действия
-  'Читать книгу', 'Писать письмо', 'Рисовать картину', 'Петь песню',
-  'Танцевать вальс', 'Готовить ужин', 'Чинить машину', 'Строить дом',
-  'Сажать дерево', 'Мыть посуду', 'Шить платье', 'Красить забор',
-
-  // Абстрактные понятия
-  'Чувство юмора', 'Искренняя радость', 'Глубокое разочарование', 'Сильное волнение',
-  'Творческий кризис', 'Финансовая стабильность', 'Профессиональный рост', 'Личное пространство',
-  'Эмоциональный интеллект', 'Критическое мышление', 'Социальная ответственность', 'Экологическое сознание',
-
-  // Дополнения (простые слова)
-  'Яблоко', 'Телефон', 'Окно', 'Книга', 'Стул', 'Лампа', 'Часы', 'Дверь',
-  'Камень', 'Вода', 'Огонь', 'Земля', 'Снег', 'Дождь', 'Ветер', 'Солнце',
-  'Луна', 'Звезда', 'Река', 'Море', 'Гора', 'Лес', 'Поле', 'Цветок',
-  'Дерево', 'Трава', 'Птица', 'Рыба', 'Кошка', 'Собака', 'Лошадь', 'Корова',
-  'Молоко', 'Хлеб', 'Соль', 'Сахар', 'Мясо', 'Суп', 'Каша', 'Сок',
-  'Чай', 'Кофе', 'Торт', 'Сыр', 'Масло', 'Яйцо', 'Лук', 'Морковь',
-  'Картошка', 'Капуста', 'Огурец', 'Помидор', 'Ягода', 'Гриб', 'Орех', 'Мед',
-  'Шапка', 'Пальто', 'Платье', 'Рубашка', 'Брюки', 'Юбка', 'Туфли', 'Сапоги',
-  'Шарф', 'Перчатки', 'Зонт', 'Сумка', 'Чемодан', 'Ключ', 'Деньги', 'Фото',
-  'Карта', 'Подарок', 'Игрушка', 'Мяч', 'Кукла', 'Машина', 'Краски', 'Книжка',
-  'Тетрадь', 'Ручка', 'Карандаш', 'Линейка', 'Ластик', 'Портфель', 'Доска', 'Мел',
-  'Компьютер', 'Телевизор', 'Холодильник', 'Пылесос', 'Утюг', 'Чайник', 'Миксер', 'Блендер',
-  'Фен', 'Бритва', 'Зубная щетка', 'Мыло', 'Шампунь', 'Полотенце', 'Зеркало', 'Расческа',
-  'Кровать', 'Подушка', 'Одеяло', 'Простыня', 'Шкаф', 'Зеркало', 'Ковер', 'Картина',
-  'Ваза', 'Чашка', 'Тарелка', 'Вилка', 'Ложка', 'Нож', 'Кастрюля', 'Сковорода',
-  'Стакан', 'Кружка', 'Бутылка', 'Банка', 'Пакет', 'Коробка', 'Ящик', 'Ведро',
-  'Швабра', 'Веник', 'Губка', 'Мыло', 'Порошок', 'Тряпка', 'Веревка', 'Провод',
-  'Лампа', 'Розетка', 'Выключатель', 'Батарейка', 'Фонарик', 'Свеча', 'Спички', 'Газета',
-  'Журнал', 'Книга', 'Блокнот', 'Календарь', 'Часы', 'Будильник', 'Термометр', 'Весы',
-  'Лифт', 'Лестница', 'Дорога', 'Тротуар', 'Мост', 'Туннель', 'Площадь', 'Парк',
-  'Сад', 'Огород', 'Фонтан', 'Памятник', 'Церковь', 'Музей', 'Театр', 'Кино',
-  'Кафе', 'Ресторан', 'Магазин', 'Рынок', 'Аптека', 'Больница', 'Школа', 'Университет',
-  'Стадион', 'Бассейн', 'Спортзал', 'Каток', 'Горка', 'Качели', 'Песочница', 'Забор',
-  'Ворота', 'Окно', 'Дверь', 'Крыша', 'Труба', 'Балкон', 'Подъезд', 'Этаж',
-  'Комната', 'Кухня', 'Ванная', 'Туалет', 'Коридор', 'Кладовка', 'Лоджия', 'Гараж',
-  'Подвал', 'Чердак', 'Двор', 'Баня', 'Сауна', 'Барбекю', 'Гамак', 'Качели',
-  'Скамейка', 'Фонарь', 'Мангал', 'Клумба', 'Грядка', 'Теплица', 'Садовый инвентарь', 'Лейка',
-  'Грабли', 'Лопата', 'Топор', 'Пила', 'Молоток', 'Гвоздь', 'Шуруп', 'Болт',
-  'Гайка', 'Отвертка', 'Плоскогубцы', 'Кусачки', 'Ножницы', 'Ножовка', 'Рубанок', 'Стамеска',
-  'Дрель', 'Шуруповерт', 'Перфоратор', 'Болгарка', 'Шлифмашинка', 'Паяльник', 'Мультиметр', 'Уровень',
-  'Рулетка', 'Карандаш', 'Мел', 'Краска', 'Кисть', 'Валик', 'Шпатель', 'Штукатурка',
-  'Плитка', 'Обои', 'Линолеум', 'Ламинат', 'Паркет', 'Ковролин', 'Плинтус', 'Потолок',
-  'Стена', 'Пол', 'Окно', 'Дверь', 'Розетка', 'Выключатель', 'Лампа', 'Люстра',
-  'Бра', 'Торшер', 'Настольная лампа', 'Ночник', 'Гирлянда', 'Свеча', 'Подсвечник', 'Камин',
-  'Радиатор', 'Кондиционер', 'Вентилятор', 'Обогреватель', 'Увлажнитель', 'Очиститель', 'Пылесос', 'Моющий пылесос',
-  'Робот-пылесос', 'Швабра', 'Веник', 'Совок', 'Ведро', 'Тряпка', 'Губка', 'Моющее средство',
-  'Стиральный порошок', 'Кондиционер для белья', 'Отбеливатель', 'Пятновыводитель', 'Мыло', 'Гель для душа', 'Шампунь', 'Бальзам',
-  'Крем', 'Лосьон', 'Дезодорант', 'Тушь', 'Тени', 'Помада', 'Лак для ногтей', 'Расческа',
-  'Зубная щетка', 'Зубная паста', 'Ополаскиватель', 'Нить', 'Бритва', 'Пена', 'Крем для бритья', 'Дезодорант',
-  'Туалетная вода', 'Духи', 'Одеколон', 'Лосьон', 'Крем для рук', 'Крем для лица', 'Солнцезащитный крем', 'Бальзам для губ',
-  'Маска для лица', 'Скраб', 'Пилинг', 'Тоник', 'Мицеллярная вода', 'Молочко', 'Эмульсия', 'Сыворотка',
-  'Масло', 'Спрей', 'Пудра', 'Румяна', 'Хайлайтер', 'Консилер', 'Тональный крем', 'Пудра',
-  'Кисть', 'Спонж', 'Аппликатор', 'Пинцет', 'Ножницы', 'Фен', 'Плойка', 'Выпрямитель',
-  'Бигуди', 'Заколка', 'Резинка', 'Ободок', 'Повязка', 'Шпилька', 'Невидимка', 'Заколка-краб',
-  'Гель', 'Лак', 'Воск', 'Мусс', 'Пена', 'Спрей', 'Масло', 'Сыворотка',
-  'Расческа', 'Щетка', 'Массажная щетка', 'Фен', 'Плойка', 'Выпрямитель', 'Бигуди', 'Заколки',
-  'Резинки', 'Ободки', 'Повязки', 'Шпильки', 'Невидимки', 'Заколки-крабы', 'Гребешки', 'Сеточки',
-  'Бантики', 'Заколки-цветы', 'Обручи', 'Ободки с цветами', 'Повязки с бантами', 'Шляпы', 'Шарфы', 'Платки',
-  'Перчатки', 'Варежки', 'Шапки', 'Шарфы', 'Платки', 'Палантины', 'Накидки', 'Пончо',
-  'Жилеты', 'Кардиганы', 'Кофты', 'Свитера', 'Джемперы', 'Пуловеры', 'Толстовки', 'Худи',
-  'Кофты', 'Блузки', 'Рубашки', 'Футболки', 'Майки', 'Топы', 'Боди', 'Комбидресы',
-  'Юбки', 'Платья', 'Сарафаны', 'Туники', 'Костюмы', 'Пиджаки', 'Жакеты', 'Пальто',
-  'Плащи', 'Куртки', 'Пуховики', 'Ветровки', 'Дождевики', 'Зонты', 'Шляпы', 'Кепки',
-  'Бейсболки', 'Панамы', 'Шарфы', 'Платки', 'Перчатки', 'Варежки', 'Шапки', 'Шарфы',
-  'Носки', 'Колготки', 'Чулки', 'Гольфы', 'Гетры', 'Наколенники', 'Наколенники', 'Напульсники',
-  'Пояса', 'Ремни', 'Подтяжки', 'Галстуки', 'Бабочки', 'Зажимы', 'Булавки', 'Значки',
-  'Броши', 'Кольца', 'Серьги', 'Подвески', 'Кулоны', 'Ожерелья', 'Браслеты', 'Цепочки',
-  'Часы', 'Запонки', 'Брелоки', 'Кошельки', 'Визитницы', 'Обложки', 'Чехлы', 'Футляры',
-  'Сумки', 'Рюкзаки', 'Портфели', 'Чемоданы', 'Кейсы', 'Дипломаты', 'Папки', 'Конверты',
-  'Книги', 'Блокноты', 'Ежедневники', 'Планинги', 'Календари', 'Записные книжки', 'Тетради', 'Альбомы',
-  'Ручки', 'Карандаши', 'Маркеры', 'Фломастеры', 'Текстовыделители', 'Корректоры', 'Ластики', 'Точилки',
-  'Линейки', 'Треугольники', 'Транспортиры', 'Циркули', 'Калькуляторы', 'Дыроколы', 'Степлеры', 'Скрепки',
-  'Кнопки', 'Булавки', 'Скотч', 'Клей', 'Ножницы', 'Штемпели', 'Печати', 'Штампы',
-  'Файлы', 'Папки', 'Разделители', 'Бейджи', 'Визитки', 'Открытки', 'Конверты', 'Бумага',
-  'Картон', 'Цветная бумага', 'Самоклейка', 'Фольга', 'Пленка', 'Целлофан', 'Пергамент', 'Фетр',
-  'Ткань', 'Нитки', 'Иголки', 'Булавки', 'Наперстки', 'Пуговицы', 'Молнии', 'Липучки',
-  'Резинки', 'Тесьма', 'Кружево', 'Ленты', 'Шнурки', 'Веревки', 'Провода', 'Кабели',
-  'Розетки', 'Выключатели', 'Лампочки', 'Светильники', 'Люстры', 'Бра', 'Торшеры', 'Настольные лампы',
-  'Ночники', 'Гирлянды', 'Свечи', 'Подсвечники', 'Камины', 'Радиаторы', 'Кондиционеры', 'Вентиляторы',
-  'Обогреватели', 'Увлажнители', 'Очистители', 'Пылесосы', 'Моющие пылесосы', 'Роботы-пылесосы', 'Швабры', 'Веники',
-  'Совки', 'Ведра', 'Тряпки', 'Губки', 'Моющие средства', 'Стиральные порошки', 'Кондиционеры для белья', 'Отбеливатели',
-  'Пятновыводители', 'Мыло', 'Гели для душа', 'Шампуни', 'Бальзамы', 'Кремы', 'Лосьоны', 'Дезодоранты',
-  'Тушь', 'Тени', 'Помады', 'Лаки для ногтей', 'Расчески', 'Зубные щетки', 'Зубные пасты', 'Ополаскиватели',
-  'Нить', 'Бритвы', 'Пены', 'Кремы для бритья', 'Дезодоранты', 'Туалетные воды', 'Духи', 'Одеколоны',
-  'Лосьоны', 'Кремы для рук', 'Кремы для лица', 'Солнцезащитные кремы', 'Бальзамы для губ', 'Маски для лица', 'Скрабы', 'Пилинги',
-  'Тоники', 'Мицеллярные воды', 'Молочко', 'Эмульсии', 'Сыворотки', 'Масла', 'Спреи', 'Пудры',
-  'Румяна', 'Хайлайтеры', 'Консилеры', 'Тональные кремы', 'Пудры', 'Кисти', 'Спонжи', 'Аппликаторы',
-  'Пинцеты', 'Ножницы', 'Фены', 'Плойки', 'Выпрямители', 'Бигуди', 'Заколки', 'Резинки',
-  'Ободки', 'Повязки', 'Шпильки', 'Невидимки', 'Заколки-крабы', 'Гребешки', 'Сеточки', 'Бантики',
-  'Заколки-цветы', 'Обручи', 'Ободки с цветами', 'Повязки с бантами', 'Шляпы', 'Шарфы', 'Платки', 'Перчатки',
-  'Варежки', 'Шапки', 'Шарфы', 'Платки', 'Палантины', 'Накидки', 'Пончо', 'Жилеты',
-  'Кардиганы', 'Кофты', 'Свитера', 'Джемперы', 'Пуловеры', 'Толстовки', 'Худи', 'Кофты',
-  'Блузки', 'Рубашки', 'Футболки', 'Майки', 'Топы', 'Боди', 'Комбидресы', 'Юбки',
-  'Платья', 'Сарафаны', 'Туники', 'Костюмы', 'Пиджаки', 'Жакеты', 'Пальто', 'Плащи',
-  'Куртки', 'Пуховики', 'Ветровки', 'Дождевики', 'Зонты', 'Шляпы', 'Кепки', 'Бейсболки',
-  'Панамы', 'Шарфы', 'Платки', 'Перчатки', 'Варежки', 'Шапки', 'Шарфы', 'Носки',
-  'Колготки', 'Чулки', 'Гольфы', 'Гетры', 'Наколенники', 'Наколенники', 'Напульсники', 'Пояса',
-  'Ремни', 'Подтяжки', 'Галстуки', 'Бабочки', 'Зажимы', 'Булавки', 'Значки', 'Броши',
-  'Кольца', 'Серьги', 'Подвески', 'Кулоны', 'Ожерелья', 'Браслеты', 'Цепочки', 'Часы',
-  'Запонки', 'Брелоки', 'Кошельки', 'Визитницы', 'Обложки', 'Чехлы', 'Футляры', 'Сумки',
-  'Рюкзаки', 'Портфели', 'Чемоданы', 'Кейсы', 'Дипломаты', 'Папки', 'Конверты', 'Книги',
-  'Блокноты', 'Ежедневники', 'Планинги', 'Календари', 'Записные книжки', 'Тетради', 'Альбомы', 'Ручки',
-  'Карандаши', 'Маркеры', 'Фломастеры', 'Текстовыделители', 'Корректоры', 'Ластики', 'Точилки', 'Линейки',
-  'Треугольники', 'Транспортиры', 'Циркули', 'Калькуляторы', 'Дыроколы', 'Степлеры', 'Скрепки', 'Кнопки',
-  'Булавки', 'Скотч', 'Клей', 'Ножницы', 'Штемпели', 'Печати', 'Штампы', 'Файлы',
-  'Папки', 'Разделители', 'Бейджи', 'Визитки', 'Открытки', 'Конверты', 'Бумага', 'Картон',
-  'Цветная бумага', 'Самоклейка', 'Фольга', 'Пленка', 'Целлофан', 'Пергамент', 'Фетр', 'Ткань',
-  'Нитки', 'Иголки', 'Булавки', 'Наперстки', 'Пуговицы', 'Молнии', 'Липучки', 'Резинки',
-  'Тесьма', 'Кружево', 'Ленты', 'Шнурки', 'Веревки', 'Провода', 'Кабели', 'Розетки',
-  'Выключатели', 'Лампочки', 'Светильники', 'Люстры', 'Бра', 'Торшеры', 'Настольные лампы', 'Ночники',
-  'Гирлянды', 'Свечи', 'Подсвечники', 'Камины', 'Радиаторы', 'Кондиционеры', 'Вентиляторы', 'Обогреватели',
-  'Увлажнители', 'Очистители', 'Пылесосы', 'Моющие пылесосы', 'Роботы-пылесосы', 'Швабры', 'Веники', 'Совки',
-  'Ведра', 'Тряпки', 'Губки', 'Моющие средства', 'Стиральные порошки', 'Кондиционеры для белья', 'Отбеливатели', 'Пятновыводители',
-  'Мыло', 'Гели для душа', 'Шампуни', 'Бальзамы', 'Кремы', 'Лосьоны', 'Дезодоранты', 'Тушь',
-  'Тени', 'Помады', 'Лаки для ногтей', 'Расчески', 'Зубные щетки', 'Зубные пасты', 'Ополаскиватели', 'Нить',
-  'Бритвы', 'Пены', 'Кремы для бритья', 'Дезодоранты', 'Туалетные воды', 'Духи', 'Одеколоны', 'Лосьоны',
-  'Кремы для рук', 'Кремы для лица', 'Солнцезащитные кремы', 'Бальзамы для губ', 'Маски для лица', 'Скрабы', 'Пилинги', 'Тоники',
-  'Мицеллярные воды', 'Молочко', 'Эмульсии', 'Сыворотки', 'Масла', 'Спреи', 'Пудры', 'Румяна',
-  'Хайлайтеры', 'Консилеры', 'Тональные кремы', 'Пудры', 'Кисти', 'Спонжи', 'Аппликаторы', 'Пинцеты',
-  'Ножницы', 'Фены', 'Плойки', 'Выпрямители', 'Бигуди', 'Заколки', 'Резинки', 'Ободки',
-  'Повязки', 'Шпильки', 'Невидимки', 'Заколки-крабы', 'Гребешки', 'Сеточки', 'Бантики', 'Заколки-цветы',
-  'Обручи', 'Ободки с цветами', 'Повязки с бантами', 'Шляпы', 'Шарфы', 'Платки', 'Перчатки', 'Варежки',
-  'Шапки', 'Шарфы', 'Платки', 'Палантины', 'Накидки', 'Пончо', 'Жилеты', 'Кардиганы',
-  'Кофты', 'Свитера', 'Джемперы', 'Пуловеры', 'Толстовки', 'Худи', 'Кофты', 'Блузки',
-  'Рубашки', 'Футболки', 'Майки', 'Топы', 'Боди', 'Комбидресы', 'Юбки', 'Платья',
-  'Сарафаны', 'Туники', 'Костюмы', 'Пиджаки', 'Жакеты', 'Пальто', 'Плащи', 'Куртки',
-  'Пуховики', 'Ветровки', 'Дождевики', 'Зонты', 'Шляпы', 'Кепки', 'Бейсболки', 'Панамы',
-  'Шарфы', 'Платки', 'Перчатки', 'Варежки', 'Шапки', 'Шарфы', 'Носки', 'Колготки',
-  'Чулки', 'Гольфы', 'Гетры', 'Наколенники', 'Наколенники', 'Напульсники', 'Пояса', 'Ремни',
-  'Подтяжки', 'Галстуки', 'Бабочки', 'Зажимы', 'Булавки', 'Значки', 'Броши', 'Кольца',
-  'Серьги', 'Подвески', 'Кулоны', 'Ожерелья', 'Браслеты', 'Цепочки', 'Часы', 'Запонки',
-  'Брелоки', 'Кошельки', 'Визитницы', 'Обложки', 'Чехлы', 'Футляры', 'Сумки', 'Рюкзаки',
-  'Портфели', 'Чемоданы', 'Кейсы', 'Дипломаты', 'Папки', 'Конверты', 'Книги', 'Блокноты',
-  'Ежедневники', 'Планинги', 'Календари', 'Записные книжки', 'Тетради', 'Альбомы', 'Ручки', 'Карандаши',
-  'Маркеры', 'Фломастеры', 'Текстовыделители', 'Корректоры', 'Ластики', 'Точилки', 'Линейки', 'Треугольники',
-  'Транспортиры', 'Циркули', 'Калькуляторы', 'Дыроколы', 'Степлеры', 'Скрепки', 'Кнопки', 'Булавки',
-  'Скотч', 'Клей', 'Ножницы', 'Штемпели', 'Печати', 'Штампы', 'Файлы', 'Папки',
-  'Разделители', 'Бейджи', 'Визитки', 'Открытки', 'Конверты', 'Бумага', 'Картон', 'Цветная бумага',
-  'Самоклейка', 'Фольга', 'Пленка', 'Целлофан', 'Пергамент', 'Фетр', 'Ткань', 'Нитки',
-  'Иголки', 'Булавки', 'Наперстки', 'Пуговицы', 'Молнии', 'Липучки', 'Резинки', 'Тесьма',
-  'Кружево', 'Ленты', 'Шнурки', 'Веревки', 'Провода', 'Кабели', 'Розетки', 'Выключатели',
-  'Лампочки', 'Светильники', 'Люстры', 'Бра', 'Торшеры', 'Настольные лампы', 'Ночники', 'Гирлянды',
-  'Свечи', 'Подсвечники', 'Камины', 'Радиаторы', 'Кондиционеры', 'Вентиляторы', 'Обогреватели', 'Увлажнители',
-  'Очистители', 'Пылесосы', 'Моющие пылесосы', 'Роботы-пылесосы', 'Швабры', 'Веники', 'Совки', 'Ведра',
-  'Тряпки', 'Губки', 'Моющие средства', 'Стиральные порошки', 'Кондиционеры для белья', 'Отбеливатели', 'Пятновыводители', 'Мыло',
-  'Гели для душа', 'Шампуни', 'Бальзамы', 'Кремы', 'Лосьоны', 'Дезодоранты', 'Тушь', 'Тени',
-  'Помады', 'Лаки для ногтей', 'Расчески', 'Зубные щетки', 'Зубные пасты', 'Ополаскиватели', 'Нить', 'Бритвы', 'Пены'
-  ];
+  constructor(private http: HttpClient) { }
 
   async ngOnInit() {
     this.checkMobile();
     await this.initPeerConnection();
     this.checkUrlParams();
+    this.setupConnectionWatchdog();
+  }
+
+  private setupConnectionWatchdog() {
+    setInterval(() => {
+      if (this.conn && this.conn.open && Date.now() - this.lastSyncTime > 3000) {
+        this.retryPeerConnection();
+      }
+    }, 5000);
   }
 
   @HostListener('window:resize', ['$event'])
@@ -326,6 +139,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     this.clearTimers();
     if (this.peer) this.peer.destroy();
     if (this.conn) this.conn.close();
+    this.leaveRoom();
   }
 
   async initPeerConnection() {
@@ -349,12 +163,9 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
       this.peer.on('open', (id) => {
         this.peerId = id;
-        this.connectionStatus = `Готов к подключению. Ваш ID: ${id}`;
+        this.connectionStatus = `Готов к подключению.`;
         localStorage.setItem('aliasPeerId', id);
-
-        if (this.friendPeerId) {
-          this.connectToFriend();
-        }
+        this.connectionRetries = 0;
       });
 
       this.peer.on('connection', (conn) => {
@@ -379,10 +190,76 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
   }
 
+  async createRoom() {
+    if (!this.peerId) {
+      alert('Подождите, пока инициализируется соединение');
+      return;
+    }
+
+    this.isCreatingRoom = true;
+    this.connectionStatus = 'Создание комнаты...';
+
+    try {
+      // В реальном приложении замените URL на ваш сервер
+      const response: any = await this.http.post('https://aliase.vercel.app/api/rooms', {
+        hostPeerId: this.peerId
+      }).toPromise();
+
+      this.roomId = response.roomId;
+      this.isMainHost = true;
+      this.connectionStatus = `Комната создана! ID: ${this.roomId}`;
+      this.showConnectionPanel = false;
+      localStorage.setItem('aliasRoomId', this.roomId);
+    } catch (err) {
+      console.error('Ошибка создания комнаты:', err);
+      this.connectionStatus = 'Ошибка создания комнаты';
+      this.isCreatingRoom = false;
+    }
+  }
+
+  async joinRoom() {
+    if (!this.roomId) {
+      alert('Введите ID комнаты');
+      return;
+    }
+
+    this.isJoiningRoom = true;
+    this.connectionStatus = 'Подключение к комнате...';
+
+    try {
+      // В реальном приложении замените URL на ваш сервер
+      const response: any = await this.http.get(`https://your-game-server.com/api/rooms/${this.roomId}`).toPromise();
+
+      if (!response) {
+        throw new Error('Комната не найдена');
+      }
+
+      this.friendPeerId = response.hostPeerId;
+      this.connectToFriend();
+      localStorage.setItem('aliasRoomId', this.roomId);
+    } catch (err) {
+      console.error('Ошибка подключения к комнате:', err);
+      this.connectionStatus = 'Ошибка подключения к комнате';
+      this.isJoiningRoom = false;
+    }
+  }
+
+  async leaveRoom() {
+    if (this.roomId && this.isMainHost) {
+      try {
+        await this.http.delete(`https://your-game-server.com/api/rooms/${this.roomId}`).toPromise();
+      } catch (err) {
+        console.error('Ошибка удаления комнаты:', err);
+      }
+    }
+    this.roomId = '';
+    localStorage.removeItem('aliasRoomId');
+  }
+
   handleIncomingConnection(conn: DataConnection) {
     this.conn = conn;
     this.setupConnection();
-    this.isMainHost = true;
+    this.isMainHost = true; // Только хост получает входящие соединения
     this.connectionStatus = `${conn.peer} подключился!`;
     this.showConnectionPanel = false;
     this.isConnected = true;
@@ -469,7 +346,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     });
   }
 
-  connectToFriend() {
+  async connectToFriend() {
     if (!this.friendPeerId) {
       alert('Введите ID друга');
       return;
@@ -484,6 +361,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     try {
       this.conn = this.peer.connect(this.friendPeerId);
       if (this.conn) {
+        this.isMainHost = false; // Клиент не является ведущим
         this.setupConnection();
       } else {
         this.connectionStatus = 'Ошибка при создании соединения';
@@ -505,12 +383,23 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   }
 
   showAddPlayerForm() {
-    this.showPlayerForm = true;
+    // Показываем форму только если игрок еще не добавлен
+    if (!this.players.some(p => p.peerId === this.peerId)) {
+      this.showPlayerForm = true;
+    } else {
+      alert('Вы уже в игре!');
+    }
   }
 
   addPlayer() {
     if (!this.newPlayerName.trim()) {
       alert('Введите имя игрока');
+      return;
+    }
+
+    // Проверяем, не добавлен ли уже этот игрок
+    if (this.players.some(p => p.peerId === this.peerId)) {
+      alert('Вы уже добавлены в игру');
       return;
     }
 
@@ -598,62 +487,70 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     this.clearTimer();
 
     this.gameTimer = setInterval(() => {
-        const now = Date.now();
-        const elapsed = (now - this.lastUpdateTime) / 1000;
-        this.lastUpdateTime = now;
+      const now = Date.now();
+      const elapsed = (now - this.lastUpdateTime) / 1000;
+      this.lastUpdateTime = now;
 
+      if (this.isCurrentTurnHost) {
+        this.timeLeft = Math.max(0, this.timeLeft - elapsed);
+
+        if (now - this.lastSyncTime > 1000) {
+          this.lastSyncTime = now;
+          this.serverTimeLeft = this.timeLeft;
+          this.syncGameState();
+        }
+      } else {
+        this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTime) / 1000);
+      }
+
+      if (this.timeLeft <= 0) {
+        this.clearTimer();
         if (this.isCurrentTurnHost) {
-            this.timeLeft = Math.max(0, this.timeLeft - elapsed);
-
-            if (now - this.lastSyncTime > 1000) {
-                this.lastSyncTime = now;
-                this.serverTimeLeft = this.timeLeft;
-                this.syncGameState();
-            }
-        } else {
-            this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTime) / 1000);
+          this.endPlayerTurn();
         }
-
-        if (this.timeLeft <= 0) {
-            this.clearTimer();
-            if (this.isCurrentTurnHost) {
-                this.endPlayerTurn();
-            }
-        }
+      }
     }, 100);
 
     this.setupSyncTimer();
   }
+  private handleTimeSync(data: any) {
+    if (this.isCurrentTurnHost) return;
 
+    if (data.round !== this.gameState.currentRound || 
+        data.turn !== this.gameState.currentPlayerIndex) {
+      return;
+    }
+
+    const now = Date.now();
+    this.serverTimeLeft = data.timeLeft;
+    this.lastSyncTimeLeft = now;
+    this.localTimeOffset = now - data.serverTime;
+
+    this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTimeLeft) / 1000);
+  }
   private syncTime() {
-    if (!this.isCurrentTurnHost || !this.conn) return;
-    
+    if (!this.isCurrentTurnHost || !this.conn || !this.conn.open) return;
+
     this.lastSyncTimeLeft = Date.now();
+    this.lastTimeSync = Date.now();
+
     try {
       this.conn.send({
         type: 'timeSync',
         timeLeft: this.timeLeft,
-        serverTime: Date.now()
+        serverTime: Date.now(),
+        round: this.gameState.currentRound,
+        turn: this.gameState.currentPlayerIndex
       });
     } catch (err) {
       console.error('Ошибка синхронизации времени:', err);
     }
   }
 
-  private handleTimeSync(data: any) {
-    if (this.isCurrentTurnHost) return;
-    
-    const now = Date.now();
-    this.serverTimeLeft = data.timeLeft;
-    this.lastSyncTimeLeft = now;
-    this.localTimeOffset = now - data.serverTime;
-    
-    this.timeLeft = this.serverTimeLeft - (now - this.lastSyncTimeLeft) / 1000;
-  }
 
   private setupSyncTimer() {
     if (this.syncTimer) clearInterval(this.syncTimer);
-    
+
     this.syncTimer = setInterval(() => {
       if (this.isCurrentTurnHost && this.conn) {
         this.syncTime();
@@ -671,6 +568,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       this.syncGameState();
     }
   }
+
   async copyToClipboard(text: string) {
     if (!text) {
       alert('Нет данных для копирования');
@@ -699,10 +597,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         document.body.removeChild(textarea);
       }
     }
-  }
-  canContinueGame(): boolean {
-    if (!this.nextPlayer) return false;
-    return this.nextPlayer.peerId === this.peerId || this.isMainHost;
   }
 
   continueGame() {
@@ -734,28 +628,44 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   }
 
   prepareWords() {
-    const unusedWords = this.wordBank.filter(word => 
-      !this.gameState.usedWords.some(used => used.word === word)
-    );
+    if (this.wordHistory.length > this.maxWordHistory) {
+      this.wordHistory = this.wordHistory.slice(-this.maxWordHistory);
+    }
 
-    this.allWords = [...unusedWords]
-      .filter(word => word.split(' ').length <= this.gameSettings.maxWordLength)
+    // Объединяем стандартные неиспользованные слова с дополнительными
+    const availableWords = [...this.wordBank, ...unusedWords]
+      .filter(word =>
+        !this.gameState.usedWords.some(used => used.word === word) &&
+        !this.wordHistory.includes(word) &&
+        word.split(' ').length <= this.gameSettings.maxWordLength
+      );
+
+    // Удаляем дубликаты
+    const uniqueWords = [...new Set(availableWords)];
+
+    // Перемешиваем слова
+    this.allWords = uniqueWords
+      .sort(() => Math.random() - 0.5)
       .sort(() => Math.random() - 0.5)
       .slice(0, this.players.length * this.gameSettings.totalRounds * 10);
+
+    this.wordHistory.push(...this.allWords);
   }
 
   getNextWord(): string {
     if (this.allWords.length === 0) {
       this.prepareWords();
     }
-    
+
     if (this.allWords.length === 0) {
-      this.wordBank = [...this.wordBank];
+      // Если слова все равно закончились, сбрасываем историю
+      this.wordHistory = [];
       this.gameState.usedWords = [];
       this.prepareWords();
     }
-    
-    return this.allWords.pop() || 'Слово не найдено';
+
+    const nextWord = this.allWords.pop() || 'Слово не найдено';
+    return nextWord;
   }
 
   handleAnswer(isCorrect: boolean) {
@@ -775,6 +685,15 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
     this.gameState.currentWord = this.getNextWord();
     this.syncGameState();
+  }
+  canContinueGame(): boolean {
+    if (!this.nextPlayer) return false;
+
+    // Кнопка "Продолжить" показывается:
+    // 1. У следующего игрока (который будет ходить)
+    // 2. Или у ведущего (если следующий игрок неактивен)
+    return this.nextPlayer.peerId === this.peerId ||
+      (this.isMainHost && !this.players.some(p => p.peerId === this.nextPlayer?.peerId));
   }
 
   syncGameState() {
@@ -823,49 +742,61 @@ export class AlliaseComponent implements OnInit, OnDestroy {
           }
         }
         break;
-        
+
       case 'timeSync':
         this.handleTimeSync(data);
         break;
-        
+
       case 'playerUpdate':
         this.handlePlayerUpdate(data);
         break;
     }
   }
-
+  shouldShowAddPlayerButton(): boolean {
+    return !this.showPlayerForm &&
+      this.isConnected &&
+      !this.players.some(p => p.peerId === this.peerId);
+  }
   handlePlayerUpdate(data: any) {
-    if (!this.isMainHost) return;
-
     if (data.action === 'add') {
-      if (!this.players.some(p => p.id === data.player.id)) {
+      // Проверяем, нет ли уже игрока с таким peerId
+      if (!this.players.some(p => p.peerId === data.player.peerId)) {
         this.players.push(data.player);
-        this.syncGameState();
+        if (this.isMainHost) {
+          this.syncGameState();
+        }
       }
     } else if (data.action === 'remove') {
       this.players = this.players.filter(p => p.id !== data.player.id);
-      this.syncGameState();
+      if (this.isMainHost) {
+        this.syncGameState();
+      }
     }
   }
 
-  generateInviteLink(): string {
-  // Получаем текущий URL без параметров
-  const baseUrl = window.location.origin + window.location.pathname;
-  
-  // Добавляем параметр с peerId хоста
-  return `${baseUrl}?join=${this.peerId}`;
-}
-
-// Обновленный метод checkUrlParams для обработки нового параметра
-checkUrlParams() {
-  const params = new URLSearchParams(window.location.search);
-  const peerIdToJoin = params.get('join');
-
-  if (peerIdToJoin) {
-    this.friendPeerId = peerIdToJoin;
-    setTimeout(() => this.connectToFriend(), 1000);
+  private validatePlayers(players: Player[]): Player[] {
+    return players.filter(player =>
+      player &&
+      player.id &&
+      player.name &&
+      player.team >= 0 &&
+      player.team < this.gameSettings.teamsCount
+    );
   }
-}
+  generateInviteLink(): string {
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?room=${this.roomId}`;
+  }
+
+  checkUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room');
+
+    if (roomId) {
+      this.roomId = roomId;
+      this.showRoomInput = true;
+    }
+  }
 
   getCurrentTeamPlayers(teamIndex: number): Player[] {
     return this.players.filter(player => player.team === teamIndex);

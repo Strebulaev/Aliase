@@ -18,33 +18,30 @@
 
   <!-- Панель подключения -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && showConnectionPanel" class="connection-panel card">
-    <h1><i class="fas fa-gamepad"></i> Alias Game</h1>
+    <h1><i class="fas fa-dice-d20"></i> Alias</h1>
 
     <div class="your-id">
-      <p><strong><i class="fas fa-id-card"></i> Ваш ID:</strong> {{peerId || 'Загрузка...'}}</p>
+      <p><strong><i class="fas fa-ghost"></i> ID:</strong> {{peerId || 'Загрузка...'}}</p>
       <button (click)="copyToClipboard(peerId)" [disabled]="!peerId" class="button button-primary">
-        <i class="fas fa-copy"></i> Копировать ID
+        <i class="fas fa-broom"></i> Копировать
       </button>
     </div>
 
     <div class="connect-form">
-      <input [(ngModel)]="friendPeerId" placeholder="Введите ID друга">
+      <input [(ngModel)]="friendPeerId" placeholder="Введи ID друга">
       <button (click)="connectToFriend()" [disabled]="!friendPeerId" class="button button-primary">
-        <i class="fas fa-plug"></i> Подключиться
-      </button>
-      <button (click)="showManualConnect = true" class="button button-warning">
-        <i class="fas fa-question-circle"></i> Проблемы?
+        <i class="fas fa-sign-in-alt"></i>
       </button>
     </div>
 
     <div class="connection-status" [class.error]="connectionStatus.includes('Ошибка')">
-      <i class="fas fa-circle" [ngClass]="{
+      <i class="fas fa-dharmachakra" [ngClass]="{
         'connected': peerId && connectionStatus.includes('Готов'),
         'connecting': !peerId || connectionStatus.includes('Пытаемся'),
         'error': connectionStatus.includes('Ошибка')
       }"></i>
       Статус: {{connectionStatus || 'Инициализация...'}}
-      <span *ngIf="peerId" class="peer-id">Ваш ID: {{peerId}}</span>
+      <!--<span *ngIf="peerId" class="peer-id"></span>-->
 
       <button *ngIf="connectionStatus.includes('Ошибка')"
               (click)="initPeerConnection()"
@@ -54,9 +51,9 @@
     </div>
 
     <div class="invite-section">
-      <button (click)="copyToClipboard(generateInviteLink())" [disabled]="!peerId" class="button button-primary">
+      <!--<button (click)="copyToClipboard(generateInviteLink())" [disabled]="!peerId" class="button button-primary">
         <i class="fas fa-share-alt"></i> Создать ссылку-приглашение
-      </button>
+      </button>-->
     </div>
   </div>
 
@@ -100,7 +97,9 @@
         </button>
       </div>
 
-      <button *ngIf="!showPlayerForm && isConnected" (click)="showAddPlayerForm()" class="button button-primary">
+      <button *ngIf="shouldShowAddPlayerButton()"
+              (click)="showAddPlayerForm()"
+              class="button button-primary">
         <i class="fas fa-plus"></i> Добавить себя в игру
       </button>
 
@@ -117,7 +116,10 @@
         </div>
       </div>
 
-      <button *ngIf="isMainHost" (click)="startGame()" class="button button-success start-btn" [disabled]="players.length < 2">
+      <button *ngIf="isMainHost && !gameState.isGameStarted"
+              (click)="startGame()"
+              class="button button-success start-btn"
+              [disabled]="players.length < 2">
         <i class="fas fa-play"></i> Начать игру
       </button>
     </div>
@@ -133,7 +135,7 @@
  <div class="player-turn">
   <!-- Таймер теперь всегда виден -->
   <div class="timer" [class.pulse]="timeLeft <= 10">
-  {{ timeLeft | number:'1.0-0' }} сек
+  {{ timeLeft | number:'1.0-0' }} секунд
   <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
   </div>
   
@@ -177,7 +179,9 @@
       </div>
     </div>
 
-    <button (click)="continueGame()" class="button button-primary continue-btn" [disabled]="!canContinueGame()">
+    <button *ngIf="canContinueGame()"
+            (click)="continueGame()"
+            class="button button-primary continue-btn">
       <i class="fas fa-arrow-right"></i> {{nextPlayer?.name === currentPlayer?.name ? 'Готов объяснять' : 'Продолжить'}}
     </button>
     <div *ngIf="!canContinueGame()" class="wait-message">
@@ -204,7 +208,7 @@
     </div>
 
     <div class="all-words">
-      <h2><i class="fas fa-list-ul"></i> Все слова:</h2>
+      <h2><i class="far fa-eye"></i> Слова:</h2>
       <div class="words-list">
         <div *ngFor="let item of gameState.usedWords"
              class="word-item" [class.guessed]="item.guessed">

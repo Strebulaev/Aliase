@@ -78,6 +78,7 @@ body {
 .button-primary {
   background-color: var(--primary);
   color: var(--white);
+  margin-right: 27px;
 }
 
   .button-primary:hover:not(:disabled) {
@@ -133,6 +134,7 @@ body {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin-left: 0px
 }
 
 .connect-form {
