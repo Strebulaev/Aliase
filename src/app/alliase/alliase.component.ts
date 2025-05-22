@@ -42,14 +42,14 @@ interface GameState {
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
   // Таймеры и временные переменные
-  private lastUpdateTime = 0;
-  private serverTimeLeft = 0;
-  private lastSyncTimeLeft = 0;
-  private localTimeOffset = 0;
-  private gameTimer: any;
-  private syncTimer: any;
-  private connectionRetries = 0;
-  private maxConnectionRetries = 5;
+  public lastUpdateTime = 0;
+  public serverTimeLeft = 0;
+  public lastSyncTimeLeft = 0;
+  public localTimeOffset = 0;
+  public gameTimer: any;
+  public syncTimer: any;
+  public connectionRetries = 0;
+  public maxConnectionRetries = 5;
 
   // Состояние игры
   gameState: GameState = {
