@@ -214,9 +214,8 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   }
   private async initializePeerConnection(): Promise<void> {
     const servers = [
-      { host: '0.peerjs.com', secure: true, key: 'peerjs' },
-      { host: '1.peerjs.com', secure: true, key: 'peerjs' },
-      { host: 'peerjs-server.herokuapp.com', secure: true }
+      { host: '0.peerjs.com', secure: false, key: 'peerjs' },
+      { host: '1.peerjs.com', secure: false, key: 'peerjs' },
     ];
 
     for (const server of servers) {
