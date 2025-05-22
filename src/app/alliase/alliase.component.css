@@ -132,9 +132,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: -5px;
   flex-wrap: wrap;
-  margin-left: 0px
+  margin-left: 0px;
+  white-space: nowrap;
 }
 
 .connect-form {
