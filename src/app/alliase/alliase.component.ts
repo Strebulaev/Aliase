@@ -5,8 +5,15 @@ import { Peer, DataConnection } from 'peerjs';
 import { HttpClient } from '@angular/common/http';
 import { usedWords } from './used-words';
 import { unusedWords } from './unused-words';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
+
 import { lastValueFrom } from 'rxjs';
 interface Player {
+  id: string;
+  name: string;
+  team: number;
+  peerId: string;
+  isLocal: boolean;
     id: string;
     name: string;
     team: number;
@@ -15,6 +22,11 @@ interface Player {
 }
 
 interface GameSettings {
+  roundTime: number;
+  totalRounds: number;
+  maxWordLength: number;
+  teamsCount: number;
+  skipPenalty: number;
     roundTime: number;
     totalRounds: number;
     maxWordLength: number;
@@ -23,6 +35,14 @@ interface GameSettings {
 }
 
 interface GameState {
+  currentRound: number;
+  currentPlayerIndex: number;
+  currentWord: string;
+  scores: number[];
+  usedWords: { word: string, guessed: boolean, team: number }[];
+  isGameStarted: boolean;
+  isGameFinished: boolean;
+  isBetweenRounds: boolean;
     currentRound: number;
     currentPlayerIndex: number;
     currentWord: string;
@@ -33,7 +53,18 @@ interface GameState {
     isBetweenRounds: boolean;
 }
 
+interface RoomInfo {
+  roomId: string;
+  hostPeerId: string;
+  timestamp: number;
+}
+
 @Component({
+  selector: 'app-alliase',
+  standalone: true,
+  imports: [CommonModule, FormsModule, HttpClientModule],
+  templateUrl: './alliase.component.html',
+  styleUrls: ['./alliase.component.css']
     selector: 'app-alliase',
     standalone: true,
     imports: [CommonModule, FormsModule],
@@ -41,6 +72,16 @@ interface GameState {
     styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
+  private lastUpdateTime = 0;
+  private serverTimeLeft = 0;
+  private lastSyncTimeLeft = 0;
+  private localTimeOffset = 0;
+  private wordHistory: string[] = [];
+  private maxWordHistory = 100;
+  private connectionRetries = 0;
+  private maxConnectionRetries = 5;
+  private timeSyncInterval = 500;
+  private lastTimeSync = 0
     private lastUpdateTime = 0;
     private serverTimeLeft = 0;
     private lastSyncTimeLeft = 0;
@@ -51,6 +92,23 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     private maxConnectionRetries = 5;
     private timeSyncInterval = 500;
     private lastTimeSync = 0;
+
+  gameSettings: GameSettings = {
+    roundTime: 60,
+    totalRounds: 3,
+    maxWordLength: 2,
+    teamsCount: 2,
+    skipPenalty: 0
+  };
+
+  players: Player[] = [];
+  newPlayerName = '';
+  currentPlayer: Player | null = null;
+  nextPlayer: Player | null = null;
+  isMobile = false;
+  isConnected = false;
+  isMainHost = false;
+  isCurrentTurnHost = false;
 
     gameSettings: GameSettings = {
         roundTime: 60,
@@ -69,6 +127,16 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     isMainHost = false;
     isCurrentTurnHost = false;
 
+  gameState: GameState = {
+    currentRound: 1,
+    currentPlayerIndex: 0,
+    currentWord: '',
+    scores: [],
+    usedWords: [],
+    isGameStarted: false,
+    isGameFinished: false,
+    isBetweenRounds: false
+  };
     gameState: GameState = {
         currentRound: 1,
         currentPlayerIndex: 0,
@@ -80,9 +148,30 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         isBetweenRounds: false
     };
 
+  private lastSyncTime = 0;
+  private timerStartTime = 0;
     private lastSyncTime = 0;
     private timerStartTime = 0;
 
+
+
+
+
+
+
+  peer: Peer | null = null;
+  conn: DataConnection | null = null;
+  peerId = '';
+  friendPeerId = '';
+  connectionStatus = 'Инициализация...';
+  showConnectionPanel = true;
+  showManualConnect = false;
+  manualFriendId = '';
+  showPlayerForm = false;
+  roomId = '';
+  showRoomInput = false;
+  isCreatingRoom = false;
+  isJoiningRoom = false;
     peer: Peer | null = null;
     conn: DataConnection | null = null;
     peerId = '';
@@ -97,19 +186,46 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     isCreatingRoom = false;
     isJoiningRoom = false;
 
+
+
+
+  private gameTimer: any;
+  timeLeft = 0;
+  private syncTimer: any;
+  private allWords: string[] = [];
+  private wordBank: string[] = [...unusedWords];
     private gameTimer: any;
     timeLeft = 0;
     private syncTimer: any;
     private allWords: string[] = [];
     private wordBank: string[] = [...unusedWords];
 
+
+
+
+
+  constructor(private http: HttpClient) { }
     constructor(private http: HttpClient) { }
 
+  async ngOnInit() {
+    this.checkMobile();
+    await this.initPeerConnection();
+    this.checkUrlParams();
+    this.setupConnectionWatchdog();
+  }
     async ngOnInit() {
         this.checkMobile();
         await this.initPeerConnection();
         this.setupConnectionWatchdog();
     }
+
+  private setupConnectionWatchdog() {
+    setInterval(() => {
+      if (this.conn && this.conn.open && Date.now() - this.lastSyncTime > 3000) {
+        this.retryPeerConnection();
+      }
+    }, 5000);
+  }
 
   private setupConnectionWatchdog() {
     setInterval(() => {
@@ -137,21 +253,39 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }, 5000);
   }
 
+  @HostListener('window:resize', ['$event'])
+  onResize() {
+    this.checkMobile();
+  }
     @HostListener('window:resize', ['$event'])
     onResize() {
         this.checkMobile();
     }
 
+  checkMobile() {
+    this.isMobile = window.innerWidth < 768;
+  }
     checkMobile() {
         this.isMobile = window.innerWidth < 768;
     }
 
+  ngOnDestroy() {
+    this.clearTimers();
+    if (this.peer) this.peer.destroy();
+    if (this.conn) this.conn.close();
+    this.leaveRoom();
+  }
     ngOnDestroy() {
         this.clearTimers();
         if (this.peer) this.peer.destroy();
         if (this.conn) this.conn.close();
     }
 
+
+
+
+  async initPeerConnection() {
+    try {
   private initPeerConnection(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.connectionStatus = 'Инициализация соединения...';
@@ -162,12 +296,42 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.peer = null;
       }
 
+      // Используем наш собственный PeerServer
+      this.peer = new Peer({
+        debug: 3,
+        host: 'aliase-peerjs.herokuapp.com',
+        port: 443,
+        secure: true,
+        path: '/',
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+          ]
+        }
+      });
       // Генерируем более стабильный ID для peer
       const peerIdPrefix = 'alias-' + (localStorage.getItem('aliasPeerIdPrefix') ||
         Math.random().toString(36).substring(2, 8));
       const peerId = `${peerIdPrefix}-${Date.now().toString(36)}`;
       localStorage.setItem('aliasPeerIdPrefix', peerIdPrefix);
 
+
+
+
+
+
+
+
+
+
+      this.peer.on('open', (id) => {
+        console.log('Peer ID:', id);
+        this.peerId = id;
+        this.connectionStatus = 'Готов к подключению';
+        localStorage.setItem('aliasPeerId', id);
+      });
       try {
         this.peer = new Peer(peerId, {
           debug: 2,
@@ -196,6 +360,10 @@ export class AlliaseComponent implements OnInit, OnDestroy {
           pingInterval: 5000
         });
 
+      this.peer.on('connection', (conn) => {
+        console.log('Входящее соединение от:', conn.peer);
+        this.handleIncomingConnection(conn);
+      });
         this.peer.on('open', (id) => {
           this.peerId = id;
           this.connectionStatus = 'Готов к подключению';
@@ -204,10 +372,29 @@ export class AlliaseComponent implements OnInit, OnDestroy {
           resolve();
         });
 
+      this.peer.on('error', (err) => {
+        console.error('PeerJS Error:', err);
+        this.handlePeerError(err);
+      });
         this.peer.on('connection', (conn) => {
           this.handleIncomingConnection(conn);
         });
 
+
+
+      // Таймаут для инициализации
+      setTimeout(() => {
+        if (!this.peerId) {
+          this.connectionStatus = 'Ошибка: Не удалось получить PeerID';
+          this.retryPeerConnection();
+        }
+      }, 10000);
+
+    } catch (err) {
+      console.error('Ошибка инициализации Peer:', err);
+      this.connectionStatus = 'Ошибка соединения';
+      this.retryPeerConnection();
+    }
         this.peer.on('error', (err) => {
           console.error('PeerJS Error:', err);
           this.handlePeerError(err);
@@ -250,6 +437,11 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     this.connectionStatus = 'Создание комнаты...';
 
     try {
+      // В реальном приложении замените URL на ваш сервер
+      const response: any = await this.http.post('https://aliase.vercel.app/api/rooms', {
+        hostPeerId: this.peerId
+      }).toPromise();
+    try {
       // Добавляем тип для ответа
       interface RoomResponse {
         roomId: string;
@@ -257,6 +449,16 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         // другие поля ответа, если они есть
       }
 
+      this.roomId = response.roomId;
+      this.isMainHost = true;
+      this.connectionStatus = `Комната создана! ID: ${this.roomId}`;
+      this.showConnectionPanel = false;
+      localStorage.setItem('aliasRoomId', this.roomId);
+    } catch (err) {
+      console.error('Ошибка создания комнаты:', err);
+      this.connectionStatus = 'Ошибка создания комнаты';
+      this.isCreatingRoom = false;
+    }
       const response = await lastValueFrom(
         this.http.post<RoomResponse>('https://aliase.vercel.app/api/rooms', {
           hostPeerId: this.peerId
@@ -314,10 +516,21 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     localStorage.removeItem('aliasRoomId');
   }
 
+  handleIncomingConnection(conn: DataConnection) {
+    this.conn = conn;
   private handleIncomingConnection(conn: any) {
     if (!conn) return; // Проверка на null
 
     this.conn = conn;
+    this.setupConnection();
+    this.isMainHost = true; // Только хост получает входящие соединения
+    this.connectionStatus = `${conn.peer} подключился!`;
+    this.showConnectionPanel = false;
+    this.isConnected = true;
+
+    setTimeout(() => {
+      this.syncGameState();
+    }, 1000);
 
     conn.on('data', (data: any) => {
       if (!data) return; // Проверка входящих данных
@@ -412,16 +625,80 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     });
   }
 
+  async connectToFriend() {
+    if (!this.friendPeerId) {
+      alert('Введите ID друга');
+      return;
   async connectToFriend(): Promise<boolean> {
     if (!this.friendPeerId) {
       alert('Введите ID друга');
       return false;
+
     }
+
+    if (!this.peer) {
+      alert('Соединение еще не инициализировано');
+      return;
 
     // Добавляем явную проверку на null
     if (!this.peer) {
       alert('Соединение не инициализировано');
       return false;
+
+
+
+
+
+
+
+
+
+
+
+    }
+
+    this.connectionStatus = 'Подключаемся...';
+    console.log('Попытка подключения к:', this.friendPeerId);
+
+    try {
+      this.conn = this.peer.connect(this.friendPeerId, {
+        reliable: true,
+        serialization: 'json'
+      });
+
+      if (!this.conn) {
+        throw new Error('Не удалось создать соединение');
+      }
+
+      // Таймаут подключения
+      const connectionTimeout = setTimeout(() => {
+        if (!this.isConnected) {
+          this.connectionStatus = 'Таймаут подключения';
+          this.conn?.close();
+        }
+      }, 15000);
+
+      this.conn.on('open', () => {
+        clearTimeout(connectionTimeout);
+        console.log('Соединение установлено!');
+        this.connectionStatus = 'Подключено!';
+        this.isConnected = true;
+        this.showConnectionPanel = false;
+        this.syncGameState();
+      });
+
+      this.conn.on('error', (err) => {
+        console.error('Ошибка соединения:', err);
+        this.connectionStatus = 'Ошибка подключения';
+        this.isConnected = false;
+      });
+
+      this.setupConnection();
+
+    } catch (err) {
+      console.error('Ошибка подключения:', err);
+      this.connectionStatus = 'Ошибка подключения';
+      this.showManualConnect = true;
     }
 
     // Проверка на попытку подключения к самому себе
@@ -650,6 +927,9 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   private syncTime() {
     if (!this.isCurrentTurnHost || !this.conn || !this.conn.open) return;
 
+    this.lastSyncTimeLeft = Date.now();
+    this.lastTimeSync = Date.now();
+
     const now = Date.now();
     // Не синхронизируем слишком часто
     if (now - this.lastTimeSync < this.timeSyncInterval) return;
@@ -661,6 +941,9 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       this.conn.send({
         type: 'timeSync',
         timeLeft: this.timeLeft,
+        serverTime: Date.now(),
+        round: this.gameState.currentRound,
+        turn: this.gameState.currentPlayerIndex
         serverTime: now,
         round: this.gameState.currentRound,
         turn: this.gameState.currentPlayerIndex,
@@ -693,6 +976,34 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
   }
 
+  async copyToClipboard(text: string) {
+    if (!text) {
+      alert('Нет данных для копирования');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Скопировано в буфер обмена!');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      try {
+        const success = document.execCommand('copy');
+        if (!success) throw new Error('Copy command failed');
+        alert('Скопировано (использован старый метод)');
+      } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('Не удалось скопировать текст');
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    }
   async copyToClipboard(text: string) {
     if (!text) {
       alert('Нет данных для копирования');
@@ -821,11 +1132,41 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       (this.isMainHost && !this.players.some(p => p.peerId === this.nextPlayer?.peerId));
   }
 
+  syncGameState() {
+    if (!this.conn) return;
+
+    this.gameState.usedWords.push({
+      word: this.gameState.currentWord,
+      guessed: isCorrect,
+      team: this.currentPlayer.team
+    });
+
+    if (isCorrect) {
+      this.gameState.scores[this.currentPlayer.team]++;
+    } else {
+      this.gameState.scores[this.currentPlayer.team] -= this.gameSettings.skipPenalty;
+    }
+
+    this.gameState.currentWord = this.getNextWord();
+    this.syncGameState();
+  }
+  canContinueGame(): boolean {
+    if (!this.nextPlayer) return false;
+
+    // Кнопка "Продолжить" показывается:
+    // 1. У следующего игрока (который будет ходить)
+    // 2. Или у ведущего (если следующий игрок неактивен)
+    return this.nextPlayer.peerId === this.peerId ||
+      (this.isMainHost && !this.players.some(p => p.peerId === this.nextPlayer?.peerId));
+  }
+
   private syncGameState() {
     if (!this.conn || !this.conn.open) return; // Добавляем проверку на open
 
     try {
       this.conn.send({
+        type: 'gameState',
+        data: {
         type: 'game-state',
         state: {
           settings: this.gameSettings,
@@ -844,6 +1185,8 @@ export class AlliaseComponent implements OnInit, OnDestroy {
   private applyGameState(state: any) {
     if (!state) return;
 
+  handleIncomingData(data: any) {
+    if (!data) return;
     if (state.settings) this.gameSettings = { ...this.gameSettings, ...state.settings };
     if (state.players) this.players = [...state.players];
     if (state.gameState) this.gameState = { ...this.gameState, ...state.gameState };
@@ -853,6 +1196,28 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     if (state.isMainHost !== undefined) this.isMainHost = state.isMainHost;
   }
 
+    switch (data.type) {
+      case 'gameState':
+        this.gameSettings = data.data.settings;
+        this.players = data.data.players;
+        this.gameState = data.data.gameState;
+        this.currentPlayer = data.data.currentPlayer;
+        this.nextPlayer = data.data.nextPlayer;
+        this.isMainHost = data.data.isMainHost;
+
+        if (this.currentPlayer) {
+          this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
+        }
+
+        if (data.data.gameState.isGameStarted && !data.data.gameState.isBetweenRounds) {
+          this.serverTimeLeft = data.data.timeLeft;
+          this.lastSyncTime = Date.now();
+
+          if (!this.gameTimer) {
+            this.startPlayerTurn();
+          }
+        }
+        break;
 
   private handleIncomingData(data: any) {
     if (!data || typeof data !== 'object') return;
@@ -882,6 +1247,13 @@ export class AlliaseComponent implements OnInit, OnDestroy {
           this.handleTimeSync(data);
           break;
 
+      case 'timeSync':
+        this.handleTimeSync(data);
+        break;
+
+      case 'playerUpdate':
+        this.handlePlayerUpdate(data);
+        break;
         case 'playerUpdate':
           this.handlePlayerUpdate(data);
           break;
@@ -890,15 +1262,38 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       console.error('Ошибка обработки данных:', err);
     }
   }
+  shouldShowAddPlayerButton(): boolean {
+    return !this.showPlayerForm &&
+      this.isConnected &&
+      !this.players.some(p => p.peerId === this.peerId);
 
   shouldShowAddPlayerButton(): boolean {
     return !this.showPlayerForm &&
       this.isConnected &&
       !this.players.some(p => p.peerId === this.peerId);
+
+
+
+
+
+
+
+
+
+
   }
+  handlePlayerUpdate(data: any) {
 
   // Пример для метода handlePlayerUpdate
   handlePlayerUpdate(data: any) {
+
+
+
+
+
+
+
+
     if (!data || !data.player) return; // Проверка на null/undefined
 
     if (data.action === 'add') {
