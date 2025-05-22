@@ -1,5 +1,8 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Peer, DataConnection } from 'peerjs';
+import { HttpClient } from '@angular/common/http';
 import { usedWords } from './used-words';
 import { unusedWords } from './unused-words';
 
@@ -16,6 +19,7 @@ interface GameSettings {
   totalRounds: number;
   maxWordLength: number;
   teamsCount: number;
+  skipPenalty: number;
 }
 
 interface GameState {
@@ -31,11 +35,23 @@ interface GameState {
 
 @Component({
   selector: 'app-alliase',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './alliase.component.html',
   styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
-  // Game state
+  // Таймеры и временные переменные
+  private lastUpdateTime = 0;
+  private serverTimeLeft = 0;
+  private lastSyncTimeLeft = 0;
+  private localTimeOffset = 0;
+  private gameTimer: any;
+  private syncTimer: any;
+  private connectionRetries = 0;
+  private maxConnectionRetries = 5;
+
+  // Состояние игры
   gameState: GameState = {
     currentRound: 1,
     currentPlayerIndex: 0,
@@ -47,60 +63,89 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     isBetweenRounds: false
   };
 
-  // Game settings
+  // Настройки игры
   gameSettings: GameSettings = {
     roundTime: 60,
     totalRounds: 3,
     maxWordLength: 2,
-    teamsCount: 2
+    teamsCount: 2,
+    skipPenalty: 0
   };
 
-  // Players
-  players: Player[] = [];
-  newPlayerName = '';
-  currentPlayer: Player | null = null;
-  nextPlayer: Player | null = null;
-
-  // PeerJS connection
+  // Подключение
   peer: Peer | null = null;
   conn: DataConnection | null = null;
   peerId = '';
   friendPeerId = '';
   connectionStatus = 'Инициализация...';
   showConnectionPanel = true;
+  showManualConnect = false;
+  manualFriendId = '';
+
+  // Игроки
+  players: Player[] = [];
+  newPlayerName = '';
+  currentPlayer: Player | null = null;
+  nextPlayer: Player | null = null;
   showPlayerForm = false;
 
-  // Game timers
-  private gameTimer: any;
-  timeLeft = 0;
+  // UI состояния
+  isMobile = false;
+  isConnected = false;
+  isMainHost = false;
+  isCurrentTurnHost = false;
+
+  // Слова
   private allWords: string[] = [];
   private wordBank: string[] = [...unusedWords];
+  private wordHistory: string[] = [];
+  private maxWordHistory = 100;
+
+  constructor(private http: HttpClient) {}
 
   async ngOnInit() {
+    this.checkMobile();
     await this.initPeerConnection();
+    this.setupConnectionWatchdog();
   }
 
-  ngOnDestroy() {
-    this.cleanup();
+  @HostListener('window:resize', ['$event'])
+  onResize() {
+    this.checkMobile();
   }
 
-  private cleanup() {
-    if (this.peer) {
-      this.peer.destroy();
-    }
-    if (this.conn) {
-      this.conn.close();
-    }
-    clearInterval(this.gameTimer);
+  checkMobile() {
+    this.isMobile = window.innerWidth < 768;
   }
 
-  private async initPeerConnection() {
-    try {
+  private setupConnectionWatchdog() {
+    setInterval(() => {
+      if (this.conn && !this.conn.open && this.isConnected) {
+        this.connectionStatus = 'Потеряно соединение. Переподключение...';
+        this.retryPeerConnection();
+      }
+    }, 5000);
+  }
+
+  public initPeerConnection(): Promise<void> {
+    return new Promise((resolve) => {
+      this.connectionStatus = 'Инициализация соединения...';
+      
+      if (this.peer) {
+        this.peer.destroy();
+      }
+
       this.peer = new Peer({
+        debug: 2,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { 
+              urls: 'turn:numb.viagenie.ca',
+              credential: 'muazkh',
+              username: 'webrtc@live.com'
+            }
           ]
         }
       });
@@ -108,6 +153,8 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       this.peer.on('open', (id) => {
         this.peerId = id;
         this.connectionStatus = 'Готов к подключению';
+        localStorage.setItem('aliasPeerId', id);
+        resolve();
       });
 
       this.peer.on('connection', (conn) => {
@@ -115,83 +162,133 @@ export class AlliaseComponent implements OnInit, OnDestroy {
       });
 
       this.peer.on('error', (err) => {
-        console.error('PeerJS error:', err);
-        this.connectionStatus = 'Ошибка подключения';
+        console.error('PeerJS Error:', err);
+        this.handlePeerError(err);
+        resolve();
       });
 
-    } catch (err) {
-      console.error('Peer initialization error:', err);
-      this.connectionStatus = 'Ошибка инициализации';
-    }
+      const savedId = localStorage.getItem('aliasPeerId');
+      if (savedId) {
+        this.peerId = savedId;
+      }
+    });
   }
 
   private handleIncomingConnection(conn: DataConnection) {
     this.conn = conn;
     this.isMainHost = true;
-    this.connectionStatus = `Подключен игрок: ${conn.peer}`;
     this.isConnected = true;
+    this.connectionStatus = `Игрок ${conn.peer} подключен!`;
     this.showConnectionPanel = false;
 
     conn.on('data', (data: any) => {
-      this.handleReceivedData(data);
+      this.handleIncomingData(data);
     });
 
     conn.on('close', () => {
-      this.connectionStatus = 'Соединение закрыто';
-      this.isConnected = false;
+      this.handleConnectionClose();
     });
 
-    // Send initial game state to the new player
     this.syncGameState();
   }
 
   connectToFriend() {
-    if (!this.friendPeerId || !this.peer) {
-      alert('Введите ID друга и дождитесь инициализации');
+    if (!this.friendPeerId) {
+      alert('Введите ID друга');
       return;
     }
 
-    this.connectionStatus = 'Подключаемся...';
-    this.conn = this.peer.connect(this.friendPeerId);
+    if (!this.peer) {
+      alert('Соединение не инициализировано');
+      return;
+    }
 
-    this.conn.on('open', () => {
-      this.connectionStatus = 'Успешное подключение!';
-      this.isConnected = true;
-      this.showConnectionPanel = false;
+    this.connectionStatus = 'Подключение...';
+    this.conn = this.peer.connect(this.friendPeerId, {
+      reliable: true,
+      serialization: 'json'
     });
 
-    this.conn.on('data', (data: any) => {
-      this.handleReceivedData(data);
+    this.setupConnection();
+  }
+
+  private setupConnection() {
+    if (!this.conn) return;
+
+    const connectionTimeout = setTimeout(() => {
+      if (!this.isConnected) {
+        this.connectionStatus = 'Таймаут подключения';
+        this.conn?.close();
+      }
+    }, 15000);
+
+    this.conn.on('open', () => {
+      clearTimeout(connectionTimeout);
+      this.isConnected = true;
+      this.connectionStatus = 'Подключено!';
+      this.showConnectionPanel = false;
+      this.syncGameState();
     });
 
     this.conn.on('error', (err) => {
+      clearTimeout(connectionTimeout);
       console.error('Connection error:', err);
       this.connectionStatus = 'Ошибка подключения';
     });
   }
 
-  private handleReceivedData(data: any) {
-    if (data.type === 'game-state') {
-      this.gameState = data.state;
-      this.players = data.players;
-      this.gameSettings = data.settings;
+  private handleConnectionClose() {
+    this.connectionStatus = 'Соединение закрыто';
+    this.isConnected = false;
+    if (this.gameState.isGameStarted && !this.gameState.isGameFinished) {
+      alert('Соединение потеряно! Игра приостановлена.');
     }
   }
 
-  private syncGameState() {
-    if (!this.conn) return;
-
-    this.conn.send({
-      type: 'game-state',
-      state: this.gameState,
-      players: this.players,
-      settings: this.gameSettings
-    });
+  private handlePeerError(err: any) {
+    console.error('PeerJS Error:', err);
+    
+    switch (err.type) {
+      case 'peer-unavailable':
+        this.connectionStatus = 'Игрок недоступен';
+        break;
+      case 'network':
+        this.connectionStatus = 'Ошибка сети';
+        break;
+      case 'disconnected':
+        this.connectionStatus = 'Соединение разорвано';
+        break;
+      default:
+        this.connectionStatus = `Ошибка: ${err.message || 'Неизвестная ошибка'}`;
+    }
+    
+    this.showManualConnect = true;
   }
 
-  // Остальные методы игры остаются без изменений
+  private retryPeerConnection() {
+    if (this.connectionRetries >= this.maxConnectionRetries) {
+      this.connectionStatus = 'Не удалось подключиться';
+      return;
+    }
+
+    this.connectionRetries++;
+    setTimeout(() => {
+      this.initPeerConnection();
+    }, 3000);
+  }
+
+  // Методы для работы с игроками
+  showAddPlayerForm() {
+    if (!this.players.some(p => p.peerId === this.peerId)) {
+      this.showPlayerForm = true;
+    }
+  }
+
   addPlayer() {
-    if (!this.newPlayerName.trim()) return;
+    if (!this.newPlayerName.trim()) {
+      alert('Введите имя игрока');
+      return;
+    }
 
     const team = this.players.length % this.gameSettings.teamsCount;
     const newPlayer: Player = {
@@ -206,9 +303,34 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     this.newPlayerName = '';
     this.showPlayerForm = false;
 
-    this.syncGameState();
+    if (this.isMainHost) {
+      this.syncGameState();
+    } else {
+      this.sendPlayerUpdate('add', newPlayer);
+    }
   }
 
+  removePlayer(playerId: string) {
+    const player = this.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    if (player.isLocal || this.isMainHost) {
+      this.players = this.players.filter(p => p.id !== playerId);
+      this.syncGameState();
+    }
+  }
+
+  shouldShowAddPlayerButton(): boolean {
+    return !this.showPlayerForm && 
+           this.isConnected && 
+           !this.players.some(p => p.peerId === this.peerId);
+  }
+
+  getCurrentTeamPlayers(teamIndex: number): Player[] {
+    return this.players.filter(player => player.team === teamIndex);
+  }
+
+  // Методы игры
   startGame() {
     if (this.players.length < 2) {
       alert('Нужно минимум 2 игрока');
@@ -219,7 +341,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     this.gameState = {
       currentRound: 1,
       currentPlayerIndex: 0,
-      currentWord: this.getNextWord(),
+      currentWord: '',
       scores: new Array(this.gameSettings.teamsCount).fill(0),
       usedWords: [],
       isGameStarted: true,
@@ -228,64 +350,89 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     };
 
     this.startPlayerTurn();
-    this.syncGameState();
   }
 
   private prepareWords() {
-    this.allWords = [...this.wordBank]
-      .filter(word => word.split(' ').length <= this.gameSettings.maxWordLength)
-      .sort(() => Math.random() - 0.5);
+    if (this.wordHistory.length > this.maxWordHistory) {
+      this.wordHistory = this.wordHistory.slice(-this.maxWordHistory);
+    }
+
+    const availableWords = [...this.wordBank]
+      .filter(word => !this.wordHistory.includes(word) && 
+                     word.split(' ').length <= this.gameSettings.maxWordLength);
+
+    this.allWords = [...new Set(availableWords)]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, this.players.length * this.gameSettings.totalRounds * 10);
+
+    this.wordHistory.push(...this.allWords);
   }
 
   private getNextWord(): string {
+    if (this.allWords.length === 0) {
+      this.prepareWords();
+    }
     return this.allWords.pop() || 'Слово не найдено';
   }
 
-  private startPlayerTurn() {
+  startPlayerTurn() {
     this.currentPlayer = this.players[this.gameState.currentPlayerIndex];
+    this.nextPlayer = this.players[(this.gameState.currentPlayerIndex + 1) % this.players.length];
     this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
     this.timeLeft = this.gameSettings.roundTime;
+    this.gameState.currentWord = this.getNextWord();
+
+    this.clearTimer();
+    this.startTimer();
+    this.syncGameState();
+  }
+
+  private startTimer() {
+    this.lastUpdateTime = Date.now();
+    this.serverTimeLeft = this.timeLeft;
 
     this.gameTimer = setInterval(() => {
-      this.timeLeft--;
-      
+      const now = Date.now();
+      const elapsed = (now - this.lastUpdateTime) / 1000;
+      this.lastUpdateTime = now;
+
+      if (this.isCurrentTurnHost) {
+        this.timeLeft = Math.max(0, this.timeLeft - elapsed);
+        this.serverTimeLeft = this.timeLeft;
+
+        if (now - this.lastSyncTime > 1000) {
+          this.syncTime();
+        }
+      } else {
+        this.timeLeft = Math.max(0, this.serverTimeLeft - (now - this.lastSyncTime) / 1000);
+      }
+
       if (this.timeLeft <= 0) {
-        this.endPlayerTurn();
+        this.clearTimer();
+        if (this.isCurrentTurnHost) {
+          this.endPlayerTurn();
+        }
       }
-    }, 1000);
+    }, 100);
   }
 
-  endPlayerTurn() {
-    clearInterval(this.gameTimer);
-    this.gameState.isBetweenRounds = true;
-    this.syncGameState();
-  }
+  private syncTime() {
+    if (!this.isCurrentTurnHost || !this.conn) return;
 
-  continueGame() {
-    this.gameState.currentPlayerIndex++;
-    
-    if (this.gameState.currentPlayerIndex >= this.players.length) {
-      this.gameState.currentPlayerIndex = 0;
-      this.gameState.currentRound++;
-      
-      if (this.gameState.currentRound > this.gameSettings.totalRounds) {
-        this.endGame();
-        return;
-      }
+    this.lastSyncTime = Date.now();
+    try {
+      this.conn.send({
+        type: 'timeSync',
+        timeLeft: this.timeLeft,
+        serverTime: Date.now()
+      });
+    } catch (err) {
+      console.error('Ошибка синхронизации времени:', err);
     }
-
-    this.gameState.isBetweenRounds = false;
-    this.startPlayerTurn();
-    this.syncGameState();
-  }
-
-  endGame() {
-    this.gameState.isGameFinished = true;
-    this.syncGameState();
   }
 
   handleAnswer(isCorrect: boolean) {
-    if (!this.currentPlayer) return;
+    if (!this.currentPlayer || !this.isCurrentTurnHost) return;
 
     this.gameState.usedWords.push({
       word: this.gameState.currentWord,
@@ -295,9 +442,19 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
     if (isCorrect) {
       this.gameState.scores[this.currentPlayer.team]++;
+    } else {
+      this.gameState.scores[this.currentPlayer.team] = Math.max(0, 
+        this.gameState.scores[this.currentPlayer.team] - this.gameSettings.skipPenalty);
     }
 
     this.gameState.currentWord = this.getNextWord();
+    this.syncGameState();
+  }
+
+  endPlayerTurn() {
+    this.clearTimer();
+    this.gameState.isBetweenRounds = true;
+    this.isCurrentTurnHost = false;
     this.syncGameState();
   }
 
@@ -306,14 +463,166 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     return this.nextPlayer.peerId === this.peerId || this.isMainHost;
   }
 
+  continueGame() {
+    if (!this.canContinueGame()) return;
+
+    this.gameState.isBetweenRounds = false;
+    this.gameState.currentPlayerIndex++;
+
+    if (this.gameState.currentPlayerIndex >= this.players.length) {
+      this.gameState.currentPlayerIndex = 0;
+      this.gameState.currentRound++;
+
+      if (this.gameState.currentRound > this.gameSettings.totalRounds) {
+        this.endGame();
+        return;
+      }
+    }
+
+    this.startPlayerTurn();
+  }
+
+  endGame() {
+    this.gameState.isGameFinished = true;
+    this.gameState.isGameStarted = false;
+    this.syncGameState();
+  }
+
   restartGame() {
     this.gameState.isGameFinished = false;
     this.startGame();
   }
 
-  copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text).then(() => {
+  getWinnerTeam(): number | null {
+    if (!this.gameState.isGameFinished) return null;
+
+    const maxScore = Math.max(...this.gameState.scores);
+    const winningTeams = this.gameState.scores
+      .map((score, index) => score === maxScore ? index : -1)
+      .filter(index => index !== -1);
+
+    return winningTeams.length === 1 ? winningTeams[0] : null;
+  }
+
+  // Синхронизация состояния
+  private syncGameState() {
+    if (!this.conn || !this.conn.open) return;
+
+    try {
+      this.conn.send({
+        type: 'gameState',
+        state: {
+          settings: this.gameSettings,
+          players: this.players,
+          gameState: this.gameState,
+          currentPlayer: this.currentPlayer,
+          nextPlayer: this.nextPlayer,
+          timeLeft: this.timeLeft,
+          isMainHost: this.isMainHost
+        }
+      });
+    } catch (err) {
+      console.error('Ошибка синхронизации:', err);
+    }
+  }
+
+  private handleIncomingData(data: any) {
+    if (!data) return;
+
+    switch (data.type) {
+      case 'gameState':
+        this.applyGameState(data.state);
+        break;
+      case 'timeSync':
+        this.handleTimeSync(data);
+        break;
+      case 'playerUpdate':
+        this.handlePlayerUpdate(data);
+        break;
+    }
+  }
+
+  private applyGameState(state: any) {
+    if (!state) return;
+
+    if (state.settings) this.gameSettings = { ...this.gameSettings, ...state.settings };
+    if (state.players) this.players = [...state.players];
+    if (state.gameState) this.gameState = { ...this.gameState, ...state.gameState };
+    if (state.currentPlayer) this.currentPlayer = { ...state.currentPlayer };
+    if (state.nextPlayer) this.nextPlayer = { ...state.nextPlayer };
+    if (state.timeLeft) this.timeLeft = state.timeLeft;
+    if (state.isMainHost !== undefined) this.isMainHost = state.isMainHost;
+
+    if (this.currentPlayer) {
+      this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
+    }
+  }
+
+  private handleTimeSync(data: any) {
+    if (this.isCurrentTurnHost) return;
+
+    const now = Date.now();
+    this.serverTimeLeft = data.timeLeft;
+    this.lastSyncTime = now;
+    this.localTimeOffset = now - data.serverTime;
+  }
+
+  private handlePlayerUpdate(data: any) {
+    if (data.action === 'add') {
+      if (!this.players.some(p => p.id === data.player.id)) {
+        this.players.push(data.player);
+      }
+    } else if (data.action === 'remove') {
+      this.players = this.players.filter(p => p.id !== data.player.id);
+    }
+  }
+
+  private sendPlayerUpdate(action: 'add' | 'remove', player: Player) {
+    if (!this.conn) return;
+
+    try {
+      this.conn.send({
+        type: 'playerUpdate',
+        action,
+        player
+      });
+    } catch (err) {
+      console.error('Ошибка отправки обновления игрока:', err);
+    }
+  }
+
+  // Вспомогательные методы
+  async copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
       alert('ID скопирован!');
-    });
+    } catch (err) {
+      console.error('Ошибка копирования:', err);
+    }
+  }
+
+  private clearTimer() {
+    if (this.gameTimer) {
+      clearInterval(this.gameTimer);
+      this.gameTimer = null;
+    }
+  }
+
+  private clearSyncTimer() {
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+      this.syncTimer = null;
+    }
+  }
+
+  private clearTimers() {
+    this.clearTimer();
+    this.clearSyncTimer();
+  }
+
+  ngOnDestroy() {
+    this.clearTimers();
+    if (this.peer) this.peer.destroy();
+    if (this.conn) this.conn.close();
   }
 }
