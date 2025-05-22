@@ -1,28 +1,4 @@
-<head>
-<meta name="monetag" content="a3c80cd77bdb2d5537a79f0da4334375">
-<!-- Yandex.RTB -->
-<script>window.yaContextCb=window.yaContextCb||[]</script>
-<script src="https://yandex.ru/ads/system/context.js" async></script>
-</head>
-
 <div class="game-container">
-  <!-- Модальное окно ручного подключения -->
-  <div class="modal-backup" *ngIf="showManualConnect">
-    <div class="modal-content card">
-      <h3><i class="fas fa-exclamation-triangle"></i> Проблемы с подключением</h3>
-      <p>Введите ID друга вручную:</p>
-      <input [(ngModel)]="manualFriendId" placeholder="ID друга" class="modal-input">
-      <div class="modal-buttons">
-        <button (click)="connectManually()" class="button button-primary">
-          <i class="fas fa-plug"></i> Подключиться
-        </button>
-        <button (click)="showManualConnect = false" class="button button-danger">
-          <i class="fas fa-times"></i> Отмена
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Панель подключения -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && showConnectionPanel" class="connection-panel card">
     <h1><i class="fas fa-dice-d20"></i> Alias</h1>
@@ -56,7 +32,7 @@
         <i class="fas fa-sync-alt"></i> Повторить
       </button>
     </div>
-
+  </div>
 
   <!-- Настройки игры и игроки -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && !showConnectionPanel"
@@ -133,21 +109,21 @@
       <div class="team-turn"><i class="fas fa-user"></i> Ходит: {{currentPlayer?.name}} (Команда {{(currentPlayer?.team ?? 0) + 1}})</div>
     </div>
 
- <div class="player-turn">
-  <!-- Таймер теперь всегда виден -->
-  <div class="timer" [class.pulse]="timeLeft <= 10">
-  {{ timeLeft | number:'1.0-0' }} секунд
-  <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
-  </div>
+     <div class="player-turn">
+      <!-- Таймер теперь всегда виден -->
+      <div class="timer" [class.pulse]="timeLeft <= 10">
+      {{ timeLeft | number:'1.0-0' }} секунд
+      <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
+      </div>
   
-  <div *ngIf="isCurrentTurnHost" class="word-display">
-    <div class="current-word">{{gameState.currentWord}}</div>
-  </div>
+      <div *ngIf="isCurrentTurnHost" class="word-display">
+        <div class="current-word">{{gameState.currentWord}}</div>
+      </div>
 
-  <div *ngIf="!isCurrentTurnHost" class="waiting-message">
-    <i class="fas fa-hourglass-half"></i>
-    <p>Ожидаем объяснения от {{currentPlayer?.name}}...</p>
-  </div>
+      <div *ngIf="!isCurrentTurnHost" class="waiting-message">
+        <i class="fas fa-hourglass-half"></i>
+        <p>Ожидаем объяснения от {{currentPlayer?.name}}...</p>
+      </div>
 
       <div *ngIf="isCurrentTurnHost" class="answer-buttons" [class.mobile-buttons]="isMobile">
         <button (click)="handleAnswer(true)" class="button button-success">
@@ -225,15 +201,3 @@
     </button>
   </div>
 </div>
-<body>
-<!-- Yandex.RTB R-A-15561004-1 -->
-<script>
-window.yaContextCb.push(() => {
-    Ya.Context.AdvManager.render({
-        "blockId": "R-A-15561004-1",
-        "type": "floorAd",
-        "platform": "touch"
-    })
-})
-</script>
-</body>
