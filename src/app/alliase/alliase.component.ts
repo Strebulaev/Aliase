@@ -114,17 +114,16 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.checkMobile();
         await this.initPeerConnection();
         this.setupConnectionWatchdog();
-        if (!navigator.onLine) {
-          this.connectionStatus = 'Нет интернет-соединения';
-          return;
-        }
+        try {
+          await this.initializePeerConnection();
+        } catch (err) {
+          console.error('Ошибка подключения:', err);
+          this.connectionStatus = 'Ошибка подключения. Обновите страницу.';
 
-        window.addEventListener('online', () => {
-          if (!this.peerId) this.initPeerConnection();
-        });
-        const savedPeerId = localStorage.getItem('aliasPeerId');
-        if (savedPeerId) {
-          this.peerId = savedPeerId;
+          // Автоматическая перезагрузка через 5 секунд
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000);
         }
     }
 
@@ -174,7 +173,65 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     sessionStorage.setItem('tabId', tabId);
     return tabId;
   }
+  // В вашем компоненте
+  private tryConnectToServer(server: any): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.connectionStatus = `Подключение к ${server.host}...`;
 
+      if (this.peer) {
+        this.peer.destroy();
+      }
+
+      const timeout = setTimeout(() => {
+        reject(new Error('Таймаут подключения'));
+      }, 8000);
+
+      this.peer = new Peer({
+        host: server.host,
+        port: server.port || 443,
+        secure: server.secure,
+        key: server.key,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478?transport=udp' }
+          ]
+        }
+      });
+
+      this.peer.on('open', (id) => {
+        clearTimeout(timeout);
+        this.peerId = id;
+        this.connectionStatus = 'Готов к подключению';
+        resolve();
+      });
+
+      this.peer.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+  }
+  private async initializePeerConnection(): Promise<void> {
+    const servers = [
+      { host: '0.peerjs.com', secure: true, key: 'peerjs' },
+      { host: '1.peerjs.com', secure: true, key: 'peerjs' },
+      { host: 'peerjs-server.herokuapp.com', secure: true }
+    ];
+
+    for (const server of servers) {
+      try {
+        await this.tryConnectToServer(server);
+        return; // Успешное подключение
+      } catch (err) {
+        console.warn(`Не удалось подключиться к ${server.host}`, err);
+        this.connectionStatus = `Пробуем другой сервер...`;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    throw new Error('Все серверы недоступны');
+  }
   async initPeerConnection(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.peer) {
