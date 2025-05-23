@@ -462,7 +462,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     private clearTimers() {
         this.clearTimer();
     }
-// Методы для работы с шаблоном
+    // Методы для работы с шаблоном
 shouldShowConnectionPanel(): boolean {
   return !this.gameState.isGameStarted && !this.gameState.isGameFinished && this.showConnectionPanel;
 }
