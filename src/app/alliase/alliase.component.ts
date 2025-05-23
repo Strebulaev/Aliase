@@ -77,9 +77,9 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     isCurrentTurnHost = false;
 
     private gameTimer: any;
+    private syncTimer: any;
     timeLeft = 0;
     private lastUpdateTime = 0;
-    private serverTimeLeft = 0;
     private lastSyncTime = 0;
 
     private allWords: string[] = [];
@@ -263,10 +263,16 @@ export class AlliaseComponent implements OnInit, OnDestroy {
                 this.clearTimer();
                 this.endPlayerTurn();
             }
-            if (Math.floor(this.timeLeft) !== Math.floor(this.timeLeft + elapsed)) {
+        }
+    }
+
+    private startSyncTimer() {
+        this.clearSyncTimer();
+        this.syncTimer = setInterval(() => {
+            if (this.isMainHost && this.isConnected) {
                 this.syncGameState();
             }
-        }
+        }, 1000);
     }
 
     showAddPlayerForm() {
@@ -325,6 +331,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         };
 
         this.startPlayerTurn();
+        this.startSyncTimer();
     }
 
     private prepareWords() {
@@ -380,6 +387,12 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.gameState.isBetweenRounds = true;
         this.isCurrentTurnHost = false;
         this.syncGameState();
+
+        // Проверка окончания всех раундов
+        if (this.gameState.currentRound >= this.gameSettings.totalRounds && 
+            this.gameState.currentPlayerIndex >= this.players.length - 1) {
+            this.endGame();
+        }
     }
 
     continueGame() {
@@ -402,6 +415,8 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
 
     endGame() {
+        this.clearTimer();
+        this.clearSyncTimer();
         this.gameState.isGameFinished = true;
         this.gameState.isGameStarted = false;
         this.syncGameState();
@@ -486,7 +501,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
 
     shouldShowGameScreen(): boolean {
-        return this.gameState.isGameStarted && !this.gameState.isBetweenRounds;
+        return this.gameState.isGameStarted && !this.gameState.isBetweenRounds && !this.gameState.isGameFinished;
     }
 
     getRoundInfo(): string {
@@ -515,7 +530,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
 
     shouldShowBetweenTurnsScreen(): boolean {
-        return this.gameState.isBetweenRounds;
+        return this.gameState.isBetweenRounds && !this.gameState.isGameFinished;
     }
 
     getRecentUsedWords(): any[] {
@@ -523,7 +538,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
 
     getContinueButtonText(): string {
-        return this.nextPlayer?.peerId === this.peerId ? 'Готов объяснять' : 'Продолжить';
+        return 'Продолжить';
     }
 
     shouldShowResultsScreen(): boolean {
@@ -573,7 +588,15 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         }
     }
 
+    private clearSyncTimer() {
+        if (this.syncTimer) {
+            clearInterval(this.syncTimer);
+            this.syncTimer = null;
+        }
+    }
+
     private clearTimers() {
         this.clearTimer();
+        this.clearSyncTimer();
     }
 }
