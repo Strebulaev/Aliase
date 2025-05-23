@@ -142,13 +142,20 @@ body {
   font-weight: bold;
 }
 
-.answer-buttons {
+.word-display {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 15px;
-  margin-top: 40px;
+  gap: 40px; /* Увеличиваем расстояние между словом и кнопками */
 }
 
+.answer-buttons {
+  display: flex;
+  gap: 15px; /* Расстояние между кнопками */
+  margin-top: 0; /* Убираем верхний отступ, так как gap уже задан в word-display */
+  width: auto; /* Позволяет кнопкам занимать только необходимое пространство */
+}
 .team-turn {
   display: flex;
   align-items: center;
