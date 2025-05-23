@@ -124,6 +124,43 @@ body {
   margin: 0 auto;
 }
 
+
+/* Добавить в конец файла */
+
+.host-badge {
+  background-color: gold;
+  color: #333;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.8em;
+  margin-left: 8px;
+}
+
+.next-player-info {
+  margin-bottom: 15px;
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+.answer-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.team-turn {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .answer-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
 .your-id {
   background: rgba(255, 255, 255, 0.9);
   padding: 15px;
