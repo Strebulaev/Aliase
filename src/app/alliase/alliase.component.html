@@ -1,57 +1,30 @@
 <div class="game-container">
-  <!-- Модальное окно ручного подключения -->
-  <div class="modal-backup" *ngIf="showManualConnect">
-    <div class="modal-content card">
-      <h3><i class="fas fa-exclamation-triangle"></i> Проблемы с подключением</h3>
-      <p>Введите ID друга вручную:</p>
-      <input [(ngModel)]="manualFriendId" placeholder="ID друга" class="modal-input">
-      <div class="modal-buttons">
-        <button (click)="connectManually()" class="button button-primary">
-          <i class="fas fa-plug"></i> Подключиться
-        </button>
-        <button (click)="showManualConnect = false" class="button button-danger">
-          <i class="fas fa-times"></i> Отмена
-        </button>
-      </div>
-    </div>
-  </div>
-
-
   <!-- Панель подключения -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && showConnectionPanel" class="connection-panel card">
     <h1><i class="fas fa-dice-d20"></i> Alias</h1>
 
     <div class="your-id">
-      <p><strong><i class="fas fa-ghost"></i> ID:</strong> {{peerId || 'Загрузка...'}}</p>
+      <p><strong><i class="fas fa-ghost"></i> Ваш ID:</strong> {{peerId || 'Загрузка...'}}</p>
       <button (click)="copyToClipboard(peerId)" [disabled]="!peerId" class="button button-primary">
-        <i class="fas fa-broom"></i> Копировать
+        <i class="fas fa-copy"></i> Копировать
       </button>
     </div>
 
     <div class="connect-form">
-      <input [(ngModel)]="friendPeerId" placeholder="Введи ID друга">
+      <input [(ngModel)]="friendPeerId" placeholder="Введите ID друга">
       <button (click)="connectToFriend()" [disabled]="!friendPeerId" class="button button-primary">
-        <i class="fas fa-sign-in-alt"></i>
+        <i class="fas fa-plug"></i> Подключиться
       </button>
     </div>
 
     <div class="connection-status" [class.error]="connectionStatus.includes('Ошибка')">
-      <i class="fas fa-dharmachakra" [ngClass]="{
-        'connected': peerId && connectionStatus.includes('Готов'),
-        'connecting': !peerId || connectionStatus.includes('Пытаемся'),
+      <i class="fas fa-circle" [ngClass]="{
+        'connected': isConnected,
         'error': connectionStatus.includes('Ошибка')
       }"></i>
-      Статус: {{connectionStatus || 'Инициализация...'}}
-      <!--<span *ngIf="peerId" class="peer-id"></span>-->
-
-      <button *ngIf="connectionStatus.includes('Ошибка')"
-              (click)="initPeerConnection()"
-              class="button button-warning small">
-        <i class="fas fa-sync-alt"></i> Повторить
-      </button>
+      {{connectionStatus}}
     </div>
   </div>
-
 
   <!-- Настройки игры и игроки -->
   <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && !showConnectionPanel"
@@ -84,7 +57,7 @@
       <h2><i class="fas fa-user-friends"></i> Игроки</h2>
 
       <div *ngIf="showPlayerForm" class="add-player">
-        <input [(ngModel)]="newPlayerName" placeholder="Имя игрока">
+        <input [(ngModel)]="newPlayerName" placeholder="Ваше имя">
         <button (click)="addPlayer()" class="button button-primary">
           <i class="fas fa-plus"></i> Добавить
         </button>
@@ -93,10 +66,10 @@
         </button>
       </div>
 
-      <button *ngIf="shouldShowAddPlayerButton()"
+      <button *ngIf="!showPlayerForm && !players.some(p => p.peerId === peerId)"
               (click)="showAddPlayerForm()"
               class="button button-primary">
-        <i class="fas fa-plus"></i> Добавить себя в игру
+        <i class="fas fa-user-plus"></i> Добавить себя в игру
       </button>
 
       <div class="teams-container">
@@ -112,52 +85,34 @@
         </div>
       </div>
 
-      <button *ngIf="isMainHost && !gameState.isGameStarted"
+      <button *ngIf="isMainHost && players.length >= 2"
               (click)="startGame()"
-              class="button button-success start-btn"
-              [disabled]="players.length < 2">
+              class="button button-success start-btn">
         <i class="fas fa-play"></i> Начать игру
       </button>
     </div>
   </div>
 
-  <!-- Экран текущего хода -->
+  <!-- Игровой экран -->
   <div *ngIf="gameState.isGameStarted && !gameState.isBetweenRounds" class="game-screen card">
     <div class="game-info">
-      <div class="round-info"><i class="fas fa-sync-alt"></i> Раунд: {{gameState.currentRound}}/{{gameSettings.totalRounds}}</div>
-      <div class="team-turn"><i class="fas fa-user"></i> Ходит: {{currentPlayer?.name}} (Команда {{(currentPlayer?.team ?? 0) + 1}})</div>
+      <div class="round-info">
+        <i class="fas fa-sync-alt"></i> Раунд: {{gameState.currentRound}}/{{gameSettings.totalRounds}}
+      </div>
+      <div class="team-turn">
+        <i class="fas fa-user"></i> Ходит: {{currentPlayer?.name}} (Команда {{(currentPlayer?.team ?? 0) + 1}})
+      </div>
     </div>
 
- <div class="player-turn">
-  <!-- Таймер теперь всегда виден -->
-  <div class="timer" [class.pulse]="timeLeft <= 10">
-  {{ timeLeft | number:'1.0-0' }} секунд
-  <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
-  </div>
-     <div class="player-turn">
-      <!-- Таймер теперь всегда виден -->
-      <div class="timer" [class.pulse]="timeLeft <= 10">
-      {{ timeLeft | number:'1.0-0' }} секунд
+    <div class="timer" [class.pulse]="timeLeft <= 10">
+      {{ timeLeft | number:'1.0-0' }} сек
       <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
-      </div>
-  
-  <div *ngIf="isCurrentTurnHost" class="word-display">
-    <div class="current-word">{{gameState.currentWord}}</div>
-  </div>
-      <div *ngIf="isCurrentTurnHost" class="word-display">
-        <div class="current-word">{{gameState.currentWord}}</div>
-      </div>
+    </div>
 
-  <div *ngIf="!isCurrentTurnHost" class="waiting-message">
-    <i class="fas fa-hourglass-half"></i>
-    <p>Ожидаем объяснения от {{currentPlayer?.name}}...</p>
-  </div>
-      <div *ngIf="!isCurrentTurnHost" class="waiting-message">
-        <i class="fas fa-hourglass-half"></i>
-        <p>Ожидаем объяснения от {{currentPlayer?.name}}...</p>
-      </div>
-
-      <div *ngIf="isCurrentTurnHost" class="answer-buttons" [class.mobile-buttons]="isMobile">
+    <div *ngIf="isCurrentTurnHost" class="word-display">
+      <div class="current-word">{{gameState.currentWord}}</div>
+      
+      <div class="answer-buttons" [class.mobile-buttons]="isMobile">
         <button (click)="handleAnswer(true)" class="button button-success">
           <i class="fas fa-check"></i> Угадано
         </button>
@@ -166,14 +121,19 @@
         </button>
       </div>
     </div>
+
+    <div *ngIf="!isCurrentTurnHost" class="waiting-message">
+      <i class="fas fa-hourglass-half"></i>
+      <p>Ожидаем объяснения от {{currentPlayer?.name}}...</p>
+    </div>
   </div>
 
-  <!-- Экран между ходами -->
+  <!-- Экран между раундами -->
   <div *ngIf="gameState.isBetweenRounds" class="between-turns card">
     <h2><i class="fas fa-chart-bar"></i> Результаты хода</h2>
 
     <div class="words-list">
-      <div *ngFor="let item of gameState.usedWords.slice().reverse()"
+      <div *ngFor="let item of gameState.usedWords.slice().reverse() | slice:0:10"
            class="word-item" [class.guessed]="item.guessed">
         <span class="word">{{item.word}}</span>
         <span class="status">{{item.guessed ? '✓' : '✗'}}</span>
@@ -191,7 +151,7 @@
     <button *ngIf="canContinueGame()"
             (click)="continueGame()"
             class="button button-primary continue-btn">
-      <i class="fas fa-arrow-right"></i> {{nextPlayer?.name === currentPlayer?.name ? 'Готов объяснять' : 'Продолжить'}}
+      <i class="fas fa-arrow-right"></i> {{nextPlayer?.peerId === peerId ? 'Готов объяснять' : 'Продолжить'}}
     </button>
     <div *ngIf="!canContinueGame()" class="wait-message">
       Ожидаем, когда {{nextPlayer?.name}} продолжит игру...
@@ -216,21 +176,8 @@
       </div>
     </div>
 
-    <div class="all-words">
-      <h2><i class="far fa-eye"></i> Слова:</h2>
-      <div class="words-list">
-        <div *ngFor="let item of gameState.usedWords"
-             class="word-item" [class.guessed]="item.guessed">
-          <span class="word">{{item.word}}</span>
-          <span class="status">{{item.guessed ? '✓' : '✗'}}</span>
-          <span class="team">(Команда {{item.team + 1}})</span>
-        </div>
-      </div>
-    </div>
-
     <button (click)="restartGame()" class="button button-primary restart-btn">
       <i class="fas fa-redo"></i> Играть снова
     </button>
   </div>
-</div>
 </div>
