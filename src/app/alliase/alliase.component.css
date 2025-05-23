@@ -399,18 +399,18 @@ body {
 }
 
 .word-display {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: black;
-  padding: 40px;
-  border-radius: var(--border-radius);
-  margin: 20px 0;
-  text-align: center;
-  min-height: 200px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  box-shadow: var(--shadow);
+  gap: 40px; /* Увеличиваем расстояние между словом и кнопками */
+}
+
+.answer-buttons {
+  display: flex;
+  gap: 15px; /* Расстояние между кнопками */
+  margin-top: 0; /* Убираем верхний отступ, так как gap уже задан в word-display */
+  width: auto; /* Позволяет кнопкам занимать только необходимое пространство */
 }
 
 .current-word {
@@ -435,14 +435,6 @@ body {
     font-size: 2.5rem;
     color: var(--primary);
   }
-
-.answer-buttons {
-  display: flex;
-  gap: 20px;
-  margin-top: 30px;
-  width: 100%;
-  justify-content: center;
-}
 
   .answer-buttons.mobile-buttons {
     flex-direction: column;
