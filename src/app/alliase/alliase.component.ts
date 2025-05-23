@@ -325,50 +325,42 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     }
 
     startPlayerTurn() {
-        this.currentPlayer = this.players[this.gameState.currentPlayerIndex];
-        this.nextPlayer = this.players[(this.gameState.currentPlayerIndex + 1) % this.players.length];
-        this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
-        this.timeLeft = this.gameSettings.roundTime;
-        this.lastUpdateTime = Date.now();
-        this.gameState.currentWord = this.getNextWord();
+  this.currentPlayer = this.players[this.gameState.currentPlayerIndex];
+  this.nextPlayer = this.players[(this.gameState.currentPlayerIndex + 1) % this.players.length];
+  this.isCurrentTurnHost = this.currentPlayer.peerId === this.peerId;
+  this.timeLeft = this.gameSettings.roundTime;
+  this.lastUpdateTime = Date.now();
+  this.gameState.currentWord = this.getNextWord();
 
-        this.clearTimer();
+  this.clearTimer();
+  this.gameTimer = setInterval(() => this.updateTimer(), 100);
+  this.syncGameState();
+}
 
-        this.gameTimer = setInterval(() => {
-            const now = Date.now();
-            const elapsed = (now - this.lastUpdateTime) / 1000;
-            this.lastUpdateTime = now;
+// Добавить метод для проверки хоста
+isHostPlayer(player: Player): boolean {
+  return this.players.length > 0 && player.peerId === this.players[0].peerId;
+}
+private updateTimer() {
+  if (!this.gameState.isGameStarted || this.gameState.isBetweenRounds) return;
 
-            this.timeLeft = Math.max(0, this.timeLeft - elapsed);
+  const now = Date.now();
+  const elapsed = (now - this.lastUpdateTime) / 1000;
+  this.lastUpdateTime = now;
 
-            if (this.timeLeft <= 0) {
-                this.clearTimer();
-                this.endPlayerTurn();
-            }
-        }, 100);
-
-        this.syncGameState();
+  // Обновляем время для всех игроков
+  if (this.isCurrentTurnHost) {
+    this.timeLeft = Math.max(0, this.timeLeft - elapsed);
+    if (this.timeLeft <= 0) {
+      this.clearTimer();
+      this.endPlayerTurn();
     }
-
-    handleAnswer(isCorrect: boolean) {
-        if (!this.currentPlayer || !this.isCurrentTurnHost) return;
-
-        this.gameState.usedWords.push({
-            word: this.gameState.currentWord,
-            guessed: isCorrect,
-            team: this.currentPlayer.team
-        });
-
-        if (isCorrect) {
-            this.gameState.scores[this.currentPlayer.team]++;
-        } else {
-            this.gameState.scores[this.currentPlayer.team] -= this.gameSettings.skipPenalty;
-        }
-
-        this.gameState.currentWord = this.getNextWord();
-        this.syncGameState();
+    // Синхронизируем время каждую секунду
+    if (Math.floor(this.timeLeft) !== Math.floor(this.timeLeft + elapsed)) {
+      this.syncGameState();
     }
-
+  }
+}
     endPlayerTurn() {
         this.clearTimer();
         this.gameState.isBetweenRounds = true;
@@ -522,10 +514,9 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     hasWinner(): boolean {
         return this.getWinnerTeam() !== null;
     }
-
-    canContinueGame(): boolean {
-        return this.nextPlayer?.peerId === this.peerId || this.isMainHost;
-    }
+canContinueGame(): boolean {
+  return this.nextPlayer?.peerId === this.peerId;
+}
 
     getCurrentTeamPlayers(teamIndex: number): Player[] {
         return this.players.filter(player => player.team === teamIndex);
