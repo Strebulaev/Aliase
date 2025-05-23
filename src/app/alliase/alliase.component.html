@@ -97,6 +97,9 @@
       </div>
       <div class="team-turn">
         <i class="fas fa-user"></i> Ходит: {{getCurrentPlayerInfo()}}
+        <span *ngIf="isHostPlayer(currentPlayer)" class="host-badge">
+          <i class="fas fa-crown"></i> Хост
+        </span>
       </div>
     </div>
 
@@ -108,7 +111,7 @@
     <div *ngIf="isCurrentTurnHost" class="word-display">
       <div class="current-word">{{gameState.currentWord}}</div>
       
-      <div class="answer-buttons" [class.mobile-buttons]="isMobile">
+      <div class="answer-buttons">
         <button (click)="handleAnswer(true)" class="button button-success">
           <i class="fas fa-check"></i> Угадано
         </button>
@@ -120,13 +123,20 @@
 
     <div *ngIf="!isCurrentTurnHost" class="waiting-message">
       <i class="fas fa-hourglass-half"></i>
-      <p>Ожидаем объяснения от {{currentPlayer?.name}}...</p>
+      <p>Ожидаем объяснения от {{getCurrentPlayerInfo()}} 
+        <span *ngIf="isHostPlayer(currentPlayer)">(Хост)</span>...
+      </p>
     </div>
   </div>
 
   <!-- Экран между раундами -->
   <div *ngIf="shouldShowBetweenTurnsScreen()" class="between-turns card">
     <h2><i class="fas fa-chart-bar"></i> Результаты хода</h2>
+
+    <div class="next-player-info">
+      Следующий: {{nextPlayer?.name}}
+      <span *ngIf="isHostPlayer(nextPlayer)">(Хост)</span>
+    </div>
 
     <div class="words-list">
       <div *ngFor="let item of getRecentUsedWords()"
