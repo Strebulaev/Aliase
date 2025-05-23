@@ -40,7 +40,6 @@ interface GameState {
     styleUrls: ['./alliase.component.css']
 })
 export class AlliaseComponent implements OnInit, OnDestroy {
-    // Основные переменные состояния
     gameSettings: GameSettings = {
         roundTime: 60,
         totalRounds: 3,
@@ -61,7 +60,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         isBetweenRounds: false
     };
 
-    // Переменные подключения
     peer: Peer | null = null;
     conn: DataConnection | null = null;
     peerId = '';
@@ -70,7 +68,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     isConnected = false;
     isMainHost = false;
 
-    // UI переменные
     newPlayerName = '';
     showConnectionPanel = true;
     showPlayerForm = false;
@@ -79,14 +76,12 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     nextPlayer: Player | null = null;
     isCurrentTurnHost = false;
 
-    // Таймеры
     private gameTimer: any;
     timeLeft = 0;
     private lastUpdateTime = 0;
     private serverTimeLeft = 0;
     private lastSyncTime = 0;
 
-    // Слова
     private allWords: string[] = [];
     private wordBank: string[] = [...unusedWords];
 
@@ -110,7 +105,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         if (this.conn) this.conn.close();
     }
 
-    // Инициализация PeerJS
     private async initPeerConnection(): Promise<void> {
         return new Promise((resolve, reject) => {
             if (this.peer) {
@@ -155,7 +149,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         });
     }
 
-    // Подключение к другу
     async connectToFriend(): Promise<boolean> {
         if (!this.friendPeerId) {
             alert('Введите ID друга');
@@ -240,7 +233,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         }, 5000);
     }
 
-    // Управление игроками
     showAddPlayerForm() {
         if (!this.players.some(p => p.peerId === this.peerId)) {
             this.showPlayerForm = true;
@@ -278,7 +270,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         }
     }
 
-    // Логика игры
     startGame() {
         if (this.players.length < 2) {
             alert('Нужно минимум 2 игрока');
@@ -398,7 +389,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.startGame();
     }
 
-    // Вспомогательные методы
     private syncGameState() {
         if (!this.conn || !this.conn.open) return;
 
@@ -449,7 +439,6 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         return winningTeams.length === 1 ? winningTeams[0] : null;
     }
 
-    // UI методы
     @HostListener('window:resize')
     checkMobile() {
         this.isMobile = window.innerWidth < 768;
