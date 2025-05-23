@@ -1,13 +1,13 @@
 <div class="game-container">
   <!-- Панель подключения -->
-  <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && showConnectionPanel" class="connection-panel card">
+  <div *ngIf="shouldShowConnectionPanel()" class="connection-panel card">
     <h1><i class="fas fa-dice-d20"></i> Alias</h1>
 
     <div class="your-id">
       <p><strong><i class="fas fa-ghost"></i> Ваш ID:</strong> {{peerId || 'Загрузка...'}}</p>
       <button (click)="copyToClipboard(peerId)" [disabled]="!peerId" class="button button-primary">
         <i class="fas fa-copy"></i> Копировать
-      </button> 
+      </button>
     </div>
 
     <div class="connect-form">
@@ -17,18 +17,14 @@
       </button>
     </div>
 
-    <div class="connection-status" [class.error]="connectionStatus.includes('Ошибка')">
-      <i class="fas fa-circle" [ngClass]="{
-        'connected': isConnected,
-        'error': connectionStatus.includes('Ошибка')
-      }"></i>
+    <div class="connection-status" [class.error]="isConnectionError()">
+      <i class="fas fa-circle" [class.connected]="isConnected" [class.error]="isConnectionError()"></i>
       {{connectionStatus}}
     </div>
   </div>
 
   <!-- Настройки игры и игроки -->
-  <div *ngIf="!gameState.isGameStarted && !gameState.isGameFinished && !showConnectionPanel"
-       class="setup-panel">
+  <div *ngIf="shouldShowSetupPanel()" class="setup-panel">
     <div class="settings-section card">
       <h2><i class="fas fa-cog"></i> Настройки игры</h2>
 
@@ -66,18 +62,18 @@
         </button>
       </div>
 
-      <button *ngIf="!showPlayerForm && !players.some(p => p.peerId === peerId)"
+      <button *ngIf="shouldShowAddPlayerButton()"
               (click)="showAddPlayerForm()"
               class="button button-primary">
         <i class="fas fa-user-plus"></i> Добавить себя в игру
       </button>
 
       <div class="teams-container">
-        <div *ngFor="let team of [].constructor(gameSettings.teamsCount); let i = index"
+        <div *ngFor="let team of getTeamsArray(); let i = index"
              class="team-players">
           <h3><i class="fas fa-users"></i> Команда {{i + 1}}</h3>
           <div *ngFor="let player of getCurrentTeamPlayers(i)" class="player">
-            <span>{{player.name}} {{player.peerId === peerId ? '(Вы)' : ''}}</span>
+            <span>{{getPlayerDisplayName(player)}}</span>
             <button *ngIf="player.isLocal" (click)="removePlayer(player.id)" class="remove-btn">
               <i class="fas fa-times"></i>
             </button>
@@ -85,7 +81,7 @@
         </div>
       </div>
 
-      <button *ngIf="isMainHost && players.length >= 2"
+      <button *ngIf="canStartGame()"
               (click)="startGame()"
               class="button button-success start-btn">
         <i class="fas fa-play"></i> Начать игру
@@ -94,19 +90,19 @@
   </div>
 
   <!-- Игровой экран -->
-  <div *ngIf="gameState.isGameStarted && !gameState.isBetweenRounds" class="game-screen card">
+  <div *ngIf="shouldShowGameScreen()" class="game-screen card">
     <div class="game-info">
       <div class="round-info">
-        <i class="fas fa-sync-alt"></i> Раунд: {{gameState.currentRound}}/{{gameSettings.totalRounds}}
+        <i class="fas fa-sync-alt"></i> Раунд: {{getRoundInfo()}}
       </div>
       <div class="team-turn">
-        <i class="fas fa-user"></i> Ходит: {{currentPlayer?.name}} (Команда {{(currentPlayer?.team ?? 0) + 1}})
+        <i class="fas fa-user"></i> Ходит: {{getCurrentPlayerInfo()}}
       </div>
     </div>
 
-    <div class="timer" [class.pulse]="timeLeft <= 10">
-      {{ timeLeft | number:'1.0-0' }} сек
-      <div class="timer-bar" [style.width.%]="(timeLeft / gameSettings.roundTime) * 100"></div>
+    <div class="timer" [class.pulse]="isTimeLow()">
+      {{ getTimeLeft() }} сек
+      <div class="timer-bar" [style.width.%]="getTimerWidth()"></div>
     </div>
 
     <div *ngIf="isCurrentTurnHost" class="word-display">
@@ -129,11 +125,11 @@
   </div>
 
   <!-- Экран между раундами -->
-  <div *ngIf="gameState.isBetweenRounds" class="between-turns card">
+  <div *ngIf="shouldShowBetweenTurnsScreen()" class="between-turns card">
     <h2><i class="fas fa-chart-bar"></i> Результаты хода</h2>
 
     <div class="words-list">
-      <div *ngFor="let item of gameState.usedWords.slice().reverse() | slice:0:10"
+      <div *ngFor="let item of getRecentUsedWords()"
            class="word-item" [class.guessed]="item.guessed">
         <span class="word">{{item.word}}</span>
         <span class="status">{{item.guessed ? '✓' : '✗'}}</span>
@@ -151,7 +147,7 @@
     <button *ngIf="canContinueGame()"
             (click)="continueGame()"
             class="button button-primary continue-btn">
-      <i class="fas fa-arrow-right"></i> {{nextPlayer?.peerId === peerId ? 'Готов объяснять' : 'Продолжить'}}
+      <i class="fas fa-arrow-right"></i> {{getContinueButtonText()}}
     </button>
     <div *ngIf="!canContinueGame()" class="wait-message">
       Ожидаем, когда {{nextPlayer?.name}} продолжит игру...
@@ -159,10 +155,10 @@
   </div>
 
   <!-- Экран результатов -->
-  <div *ngIf="gameState.isGameFinished" class="results-screen card">
+  <div *ngIf="shouldShowResultsScreen()" class="results-screen card">
     <h1><i class="fas fa-trophy"></i> Игра завершена!</h1>
 
-    <div *ngIf="getWinnerTeam() !== null; else draw" class="winner-message pulse">
+    <div *ngIf="hasWinner(); else draw" class="winner-message pulse">
       Победила команда {{getWinnerTeam()! + 1}}!
     </div>
     <ng-template #draw>
