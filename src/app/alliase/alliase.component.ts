@@ -146,6 +146,7 @@ export class AlliaseComponent implements OnInit, OnDestroy {
             this.conn = conn;
             this.setupConnection();
             this.isMainHost = true;
+            this.syncInitialState();
         });
     }
 
@@ -187,8 +188,14 @@ export class AlliaseComponent implements OnInit, OnDestroy {
                 this.conn = conn;
                 this.setupConnection();
                 this.connectionStatus = 'Подключено!';
-                this.showConnectionPanel = false;
                 this.isConnected = true;
+                
+                if (!this.isMainHost) {
+                    this.showConnectionPanel = false;
+                } else {
+                    this.syncInitialState();
+                }
+                
                 resolve(true);
             });
 
@@ -207,6 +214,9 @@ export class AlliaseComponent implements OnInit, OnDestroy {
         this.conn.on('data', (data: any) => {
             if (data.type === 'game-state') {
                 this.applyGameState(data.state);
+                if (this.isMainHost && !this.gameState.isGameStarted) {
+                    this.showConnectionPanel = false;
+                }
             }
         });
 
@@ -223,6 +233,13 @@ export class AlliaseComponent implements OnInit, OnDestroy {
 
         if (this.isMainHost) {
             this.syncGameState();
+        }
+    }
+
+    private syncInitialState() {
+        if (this.isMainHost && this.conn && this.conn.open) {
+            this.syncGameState();
+            this.showConnectionPanel = false;
         }
     }
 
@@ -412,12 +429,98 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     private applyGameState(state: any) {
         if (!state) return;
 
+        const wasConnectionPanelVisible = this.showConnectionPanel;
+        
         if (state.settings) this.gameSettings = { ...this.gameSettings, ...state.settings };
         if (state.players) this.players = [...state.players];
         if (state.gameState) this.gameState = { ...this.gameState, ...state.gameState };
         if (state.currentPlayer) this.currentPlayer = { ...state.currentPlayer };
         if (state.nextPlayer) this.nextPlayer = { ...state.nextPlayer };
         if (state.timeLeft) this.timeLeft = state.timeLeft;
+        
+        if (!this.isMainHost) {
+            this.showConnectionPanel = false;
+        } else {
+            this.showConnectionPanel = wasConnectionPanelVisible;
+        }
+    }
+
+    // Методы для работы с шаблоном
+    shouldShowConnectionPanel(): boolean {
+        return !this.gameState.isGameStarted && 
+               !this.gameState.isGameFinished && 
+               this.showConnectionPanel;
+    }
+
+    isConnectionError(): boolean {
+        return this.connectionStatus.includes('Ошибка');
+    }
+
+    shouldShowSetupPanel(): boolean {
+        return !this.gameState.isGameStarted && 
+               !this.gameState.isGameFinished && 
+               !this.showConnectionPanel &&
+               (this.isMainHost || this.players.length > 0);
+    }
+
+    shouldShowAddPlayerButton(): boolean {
+        return !this.showPlayerForm && !this.players.some(p => p.peerId === this.peerId);
+    }
+
+    getTeamsArray(): any[] {
+        return new Array(this.gameSettings.teamsCount);
+    }
+
+    getPlayerDisplayName(player: Player): string {
+        return `${player.name} ${player.peerId === this.peerId ? '(Вы)' : ''}`;
+    }
+
+    canStartGame(): boolean {
+        return this.isMainHost && !this.gameState.isGameStarted && this.players.length >= 2;
+    }
+
+    shouldShowGameScreen(): boolean {
+        return this.gameState.isGameStarted && !this.gameState.isBetweenRounds;
+    }
+
+    getRoundInfo(): string {
+        return `${this.gameState.currentRound}/${this.gameSettings.totalRounds}`;
+    }
+
+    getCurrentPlayerInfo(): string {
+        return `${this.currentPlayer?.name} (Команда ${(this.currentPlayer?.team ?? 0) + 1})`;
+    }
+
+    isTimeLow(): boolean {
+        return this.timeLeft <= 10;
+    }
+
+    getTimeLeft(): string {
+        return this.timeLeft.toFixed(0);
+    }
+
+    getTimerWidth(): number {
+        return (this.timeLeft / this.gameSettings.roundTime) * 100;
+    }
+
+    shouldShowBetweenTurnsScreen(): boolean {
+        return this.gameState.isBetweenRounds;
+    }
+
+    getRecentUsedWords(): any[] {
+        return this.gameState.usedWords.slice().reverse().slice(0, 10);
+    }
+
+    getContinueButtonText(): string {
+        return this.nextPlayer?.peerId === this.peerId ? 'Готов объяснять' : 'Продолжить';
+    }
+
+    shouldShowResultsScreen(): boolean {
+        return this.gameState.isGameFinished;
+    }
+
+    hasWinner(): boolean {
+        return this.getWinnerTeam() !== null;
     }
 
     canContinueGame(): boolean {
@@ -462,76 +565,4 @@ export class AlliaseComponent implements OnInit, OnDestroy {
     private clearTimers() {
         this.clearTimer();
     }
-    // Методы для работы с шаблоном
-shouldShowConnectionPanel(): boolean {
-  return !this.gameState.isGameStarted && !this.gameState.isGameFinished && this.showConnectionPanel;
-}
-
-isConnectionError(): boolean {
-  return this.connectionStatus.includes('Ошибка');
-}
-
-shouldShowSetupPanel(): boolean {
-  return !this.gameState.isGameStarted && !this.gameState.isGameFinished && !this.showConnectionPanel;
-}
-
-shouldShowAddPlayerButton(): boolean {
-  return !this.showPlayerForm && !this.players.some(p => p.peerId === this.peerId);
-}
-
-getTeamsArray(): any[] {
-  return new Array(this.gameSettings.teamsCount);
-}
-
-getPlayerDisplayName(player: Player): string {
-  return `${player.name} ${player.peerId === this.peerId ? '(Вы)' : ''}`;
-}
-
-canStartGame(): boolean {
-  return this.isMainHost && this.players.length >= 2;
-}
-
-shouldShowGameScreen(): boolean {
-  return this.gameState.isGameStarted && !this.gameState.isBetweenRounds;
-}
-
-getRoundInfo(): string {
-  return `${this.gameState.currentRound}/${this.gameSettings.totalRounds}`;
-}
-
-getCurrentPlayerInfo(): string {
-  return `${this.currentPlayer?.name} (Команда ${(this.currentPlayer?.team ?? 0) + 1})`;
-}
-
-isTimeLow(): boolean {
-  return this.timeLeft <= 10;
-}
-
-getTimeLeft(): string {
-  return this.timeLeft.toFixed(0);
-}
-
-getTimerWidth(): number {
-  return (this.timeLeft / this.gameSettings.roundTime) * 100;
-}
-
-shouldShowBetweenTurnsScreen(): boolean {
-  return this.gameState.isBetweenRounds;
-}
-
-getRecentUsedWords(): any[] {
-  return this.gameState.usedWords.slice().reverse().slice(0, 10);
-}
-
-getContinueButtonText(): string {
-  return this.nextPlayer?.peerId === this.peerId ? 'Готов объяснять' : 'Продолжить';
-}
-
-shouldShowResultsScreen(): boolean {
-  return this.gameState.isGameFinished;
-}
-
-hasWinner(): boolean {
-  return this.getWinnerTeam() !== null;
-}
 }
